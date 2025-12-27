@@ -1,0 +1,13 @@
+maubot: 0.1.0
+id: com.github.pkorba.mautrfx_embed
+version: 1.0.0
+license: MIT
+modules:
+  - mautrfx_embed
+dependencies:
+  - filetype >= 1.2.0
+  - pillow >= 11.2.1
+main_class: MautrFxEmbedBot
+config: true
+extra-files:
+  - base-config.yaml
