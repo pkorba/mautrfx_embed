@@ -2,6 +2,7 @@ import asyncio
 import aiohttp
 import io
 import filetype
+import re
 from aiohttp import ClientError, ClientTimeout
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
@@ -30,7 +31,6 @@ class MautrFxEmbedBot(Plugin):
                        "x.com", "twitter.com",]
     bsky_domains = ["fxbsky.app/profile", "skyview.social/?url=https://bsky.app/profile/",
                     "skyview.social/?url=bsky.app/profile/", "bsky.app/profile"]
-    # For mastodon domains anything that matches https://.+\..+/@.+/[0-9]+ regular expression
 
     async def start(self) -> None:
         await super().start()
@@ -55,7 +55,7 @@ class MautrFxEmbedBot(Plugin):
                 except Exception as e:
                     self.log.error(f"Error parsing preview: {e}")
         for preview in previews:
-            content = await self.prepare_twitter_message(preview)
+            content = await self.prepare_message(preview)
             await evt.respond(content)
 
     async def parse_preview(self, preview_raw: Any, url: str) -> Preview:
@@ -67,7 +67,87 @@ class MautrFxEmbedBot(Plugin):
             return await self.parse_mastodon_preview(preview_raw)
 
     async def parse_mastodon_preview(self, preview_raw: Any) -> Preview:
-        pass
+        """
+        Parse JSON data from Mastodon API
+        :param preview_raw: JSON data
+        :return: Preview object
+        """
+        error = preview_raw.get("error")
+        if error is not None:
+            raise ValueError("Bad response")
+
+        # Quote
+        quote_url = ""
+        quote_text = ""
+        quote_author_name = ""
+        quote_author_url = ""
+        quote_author_screen_name = ""
+        quote = preview_raw.get("quote")
+        if quote is not None:
+            quote_url = quote["quoted_status"]["url"]
+            quote_text = quote["quoted_status"]["content"]
+            quote_author_name = quote["quoted_status"]["account"]["display_name"]
+            quote_author_url = quote["quoted_status"]["account"]["url"]
+            quote_author_screen_name = quote["quoted_status"]["account"]["acct"]
+
+        # Multimedia
+        media = preview_raw.get("media_attachments")
+        photos: list[Photo] = []
+        videos: list[Video] = []
+        if media is not None:
+            for elem in media:
+                if elem["type"] == "video":
+                    video = Video(
+                        width=elem["meta"]["original"]["width"],
+                        height=elem["meta"]["original"]["height"],
+                        url=elem["url"],
+                        thumbnail_url=elem["thumbnail_url"],
+                    )
+                    videos.append(video)
+                elif elem["type"] == "image":
+                    photo = Photo(
+                        width=elem["meta"]["original"]["width"],
+                        height=elem["meta"]["original"]["height"],
+                        url=elem["url"],
+                    )
+                    photos.append(photo)
+
+        # Link
+        link: Link = None
+        link_raw = preview_raw.get("card")
+        if link_raw is not None:
+            if link_raw["type"] == "link":
+                link = Link(
+                        title=link_raw["title"],
+                        description=link_raw["description"],
+                        url=link_raw["url"]
+                    )
+
+        # Time
+        time = int(mktime(strptime(preview_raw["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z")))
+
+        return Preview(
+            text=preview_raw["content"],
+            replies=preview_raw["replies_count"],
+            retweets=preview_raw["reblogs_count"],
+            likes=preview_raw["favourites_count"],
+            views=None,
+            community_note=None,
+            author_name=preview_raw["account"]["display_name"],
+            author_screen_name=preview_raw["account"]["acct"],
+            author_url=preview_raw["account"]["url"],
+            tweet_date=time,
+            mosaic=None,
+            photos=photos,
+            videos=videos,
+            facets=[],
+            link=link,
+            quote_url=quote_url,
+            quote_text=quote_text,
+            quote_author_name=quote_author_name,
+            quote_author_url=quote_author_url,
+            quote_author_screen_name=quote_author_screen_name
+        )
 
     async def parse_bsky_preview(self, preview_raw: Any) -> Preview:
         """
@@ -180,7 +260,9 @@ class MautrFxEmbedBot(Plugin):
                     description=media["external"]["description"],
                     url=media["external"]["uri"]
                 )
-        time = mktime(strptime(preview_raw["record"]["createdAt"], "%Y-%m-%dT%H:%M:%S.%f%z"))
+
+        # Time
+        time = int(mktime(strptime(preview_raw["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z")))
 
         return Preview(
             text=preview_raw["record"]["text"],
@@ -423,9 +505,9 @@ class MautrFxEmbedBot(Plugin):
         html += f"<p><b><sub>MautrFxEmbed • {strftime('%Y-%m-%d %H:%M', localtime(preview.tweet_date))}</sub></b></p>"
         return body, html
 
-    async def prepare_twitter_message(self, preview: Preview) -> MessageEventContent:
+    async def prepare_message(self, preview: Preview) -> MessageEventContent:
         """
-        Prepare Twitter preview message, including image attachment
+        Prepare preview message, including image attachment
         :param preview: Preview object with data from API
         :return: Preview message
         """
@@ -537,6 +619,7 @@ class MautrFxEmbedBot(Plugin):
             for domain in self.twitter_domains:
                 if f"https://{domain}" in url[1]:
                     canonical_urls.append(url[1].replace(domain, "api.fxtwitter.com"))
+                    continue
             for domain in self.bsky_domains:
                 if f"https://{domain}" in url[1]:
                     new_url = (url[1]
@@ -544,6 +627,11 @@ class MautrFxEmbedBot(Plugin):
                                .replace("post", "app.bsky.feed.post"))
                     new_url += "&depth=0"
                     canonical_urls.append(new_url)
+                    continue
+            m = re.match(r"(https://.+\.[A-Za-z]+)/@[A-Za-z0-9_]+/([0-9]+)", url[1])
+            if m is not None:
+                new_url = m.groups()[0] + "/api/v1/statuses/" + m.groups()[1]
+                canonical_urls.append(new_url)
         return canonical_urls
 
     async def get_image(self, url: str) -> bytes | None:
