@@ -325,12 +325,11 @@ class MautrFxEmbedBot(Plugin):
         """
         Replace mentions, tags, URLs in raw_text with appropriate links
         :param text: raw text of the message
-        :param facets: list of elements with data about replacements
+        :param facets: list of elements sorted by byte_start with data about replacements
         :param is_html: should method return text with HTML or Markdown
         :return: text with replacements
         """
         text_array = []
-        facets.sort(key=lambda f: f.byte_start)
         start = 0
         for facet in facets:
             # Append normal text
@@ -353,6 +352,7 @@ class MautrFxEmbedBot(Plugin):
         :return: body and HTML for preview message
         """
         # Author, text
+        preview.facets.sort(key=lambda f: f.byte_start)
         body_text = await self.replace_facets(preview.text, preview.facets)
         body = (f"> [**{preview.author_name}** **(@{preview.author_screen_name})**]({preview.author_url})   \n>  \n"
                 f"> {body_text.replace('\n', '  \n> ')}  \n>  \n")
