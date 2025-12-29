@@ -8,7 +8,7 @@ from maubot.handlers import command
 from mautrix.types import TextMessageEventContent, MediaMessageEventContent, MessageEventContent, MessageType, ImageInfo, Format
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 from PIL import Image
-from time import strftime, localtime
+from time import strftime, localtime, strptime, mktime
 from typing import Tuple, Any, Type
 from .resources.datastructures import Preview, Photo, Video, Facet, Link
 
@@ -100,7 +100,7 @@ class MautrFxEmbedBot(Plugin):
                 elif "tag" in fac["features"][0]["$type"]:
                     tag = fac["features"][0]["tag"]
                     facet = Facet(
-                        text=tag,
+                        text="#" + tag,
                         url=f"https://bsky.app/hashtag/{tag}",
                         byte_start=b_start,
                         byte_end=b_end
@@ -143,12 +143,6 @@ class MautrFxEmbedBot(Plugin):
                         url=elem["fullsize"],
                     )
                     photos.append(photo)
-            elif "app.bsky.embed.record" in media["$type"]:
-                quote_url = f"https://bsky.app/profile/{media["record"]["author"]["handle"]}/post/{media["record"]["uri"].split("/")[-1]}"
-                quote_text = media["record"]["value"]["text"]
-                quote_author_name = media["record"]["author"]["displayName"]
-                quote_author_url = "https://bsky.app/profile/" + media["record"]["author"]["handle"]
-                quote_author_screen_name = media["record"]["author"]["handle"]
             elif "app.bsky.embed.recordWithMedia" in media["$type"]:
                 record = media["record"]
                 quote_url = f"https://bsky.app/profile/{record["record"]["author"]["handle"]}/post/{record["record"]["uri"].split("/")[-1]}"
@@ -174,24 +168,31 @@ class MautrFxEmbedBot(Plugin):
                                 url=elem["fullsize"],
                             )
                             photos.append(photo)
+            elif "app.bsky.embed.record" in media["$type"]:
+                quote_url = f"https://bsky.app/profile/{media["record"]["author"]["handle"]}/post/{media["record"]["uri"].split("/")[-1]}"
+                quote_text = media["record"]["value"]["text"]
+                quote_author_name = media["record"]["author"]["displayName"]
+                quote_author_url = "https://bsky.app/profile/" + media["record"]["author"]["handle"]
+                quote_author_screen_name = media["record"]["author"]["handle"]
             elif "app.bsky.embed.external" in media["$type"]:
                 link = Link(
                     title=media["external"]["title"],
                     description=media["external"]["description"],
-                    url=media["external"]["url"]
+                    url=media["external"]["uri"]
                 )
+        time = mktime(strptime(preview_raw["record"]["createdAt"], "%Y-%m-%dT%H:%M:%S.%f%z"))
 
         return Preview(
             text=preview_raw["record"]["text"],
             replies=preview_raw["replyCount"],
             retweets=preview_raw["repostCount"],
             likes=preview_raw["likeCount"],
-            views=preview_raw["views"],
+            views=None,
             community_note="",
             author_name=preview_raw["author"]["displayName"],
             author_screen_name=preview_raw["author"]["handle"],
             author_url="https://bsky.app/profile/" + preview_raw["author"]["handle"],
-            tweet_date=preview_raw["record"]["createdAt"],
+            tweet_date=time,
             mosaic=None,
             photos=photos,
             videos=videos,
@@ -258,6 +259,7 @@ class MautrFxEmbedBot(Plugin):
                         byte_start=b_start,
                         byte_end=b_end,
                     )
+                # Ignore 'media' type because API returns wrong indices for them
                 if facet:
                     facets.append(facet)
 
@@ -354,12 +356,13 @@ class MautrFxEmbedBot(Plugin):
         # Author, text
         preview.facets.sort(key=lambda f: f.byte_start)
         body_text = await self.replace_facets(preview.text, preview.facets)
-        body = (f"> [**{preview.author_name}** **(@{preview.author_screen_name})**]({preview.author_url})   \n>  \n"
+        author_name = preview.author_name if preview.author_name else preview.author_screen_name
+        body = (f"> [**{author_name}** **(@{preview.author_screen_name})**]({preview.author_url})   \n>  \n"
                 f"> {body_text.replace('\n', '  \n> ')}  \n>  \n")
         html_text = await self.replace_facets(preview.text, preview.facets, is_html=True)
         html = (
             f"<blockquote>"
-            f"<p><a href=\"{preview.author_url}\"><b>{preview.author_name} (@{preview.author_screen_name})</b></a></p>"
+            f"<p><a href=\"{preview.author_url}\"><b>{author_name} (@{preview.author_screen_name})</b></a></p>"
             f"<p>{html_text.replace('\n', '<br>')}</p>"
         )
 
@@ -374,8 +377,13 @@ class MautrFxEmbedBot(Plugin):
                      f"<p>{preview.quote_text.replace('\n', '<br>')}</p></blockquote>")
 
         # Replies, retweets, likes, views
-        body += f"> 💬 {preview.replies}  🔁 {preview.retweets}  ❤️ {preview.likes}  👁️ {preview.views}  \n>  \n"
-        html += f"<p><b>💬 {preview.replies}  🔁 {preview.retweets}  ❤️ {preview.likes}  👁️ {preview.views}</b></p>"
+        body += f"> 💬 {preview.replies}  🔁 {preview.retweets}  ❤️ {preview.likes} "
+        html += f"<p><b>💬 {preview.replies}  🔁 {preview.retweets}  ❤️ {preview.likes} "
+        if preview.views:
+            body += f" 👁️ {preview.views}"
+            html += f" 👁️ {preview.views}"
+        body += "  \n>  \n"
+        html += "</b></p>"
 
         # Multimedia list
         if len(preview.videos) > 0:
@@ -402,7 +410,7 @@ class MautrFxEmbedBot(Plugin):
         # External link
         if preview.link:
             body += f"> > [**{preview.link.title}**]({preview.link.url})  \n> > {preview.link.description}"
-            html += (f"<blockquote><p><a href=\"{preview.link.url}\">{preview.link.title}</a></p>"
+            html += (f"<blockquote><p><a href=\"{preview.link.url}\"><b>{preview.link.title}</b></a></p>"
                      f"<p>{preview.link.description}</p></blockquote>")
 
         # Community Note
@@ -500,6 +508,9 @@ class MautrFxEmbedBot(Plugin):
         if len(preview.photos) > 0:
             for photo in preview.photos:
                 photo.url = photo.url.replace("pbs.twimg.com", f"{self.config['nitter_url']}/pic/orig")
+        if len(preview.facets) > 0:
+            for facet in preview.facets:
+                facet.url = facet.url.replace("https://x.com", f"https://{self.config['nitter_url']}")
 
     async def get_preview(self, url: str) -> Any:
         """
@@ -524,10 +535,10 @@ class MautrFxEmbedBot(Plugin):
         canonical_urls = []
         for url in urls:
             for domain in self.twitter_domains:
-                if domain in url[1]:
+                if f"https://{domain}" in url[1]:
                     canonical_urls.append(url[1].replace(domain, "api.fxtwitter.com"))
             for domain in self.bsky_domains:
-                if domain in url[1]:
+                if f"https://{domain}" in url[1]:
                     new_url = (url[1]
                                .replace(domain, "api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=at:/")
                                .replace("post", "app.bsky.feed.post"))
