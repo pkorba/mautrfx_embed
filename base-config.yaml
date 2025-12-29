@@ -1,2 +1,3 @@
 nitter_redirect: true
 nitter_url: "nitter.net"
+bsky_player: "https://korba.neocities.org/player?url="

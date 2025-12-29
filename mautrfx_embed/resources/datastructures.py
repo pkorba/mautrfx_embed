@@ -17,6 +17,21 @@ class Video:
 
 
 @dataclass
+class Facet:
+    text: str
+    url: str
+    byte_start: int
+    byte_end: int
+
+
+@dataclass
+class Link:
+    title: str
+    description: str
+    url: str
+
+
+@dataclass
 class Preview:
     text: str
     replies: int
@@ -31,6 +46,8 @@ class Preview:
     mosaic: Photo
     photos: list[Photo]
     videos: list[Video]
+    facets: list[Facet]
+    link: Link
     quote_author_name: str
     quote_author_url: str
     quote_author_screen_name: str
