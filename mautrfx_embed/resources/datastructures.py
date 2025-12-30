@@ -34,6 +34,7 @@ class Link:
 @dataclass
 class Preview:
     text: str
+    markdown: str
     replies: int
     retweets: int
     likes: int
@@ -52,4 +53,5 @@ class Preview:
     quote_author_url: str
     quote_author_screen_name: str
     quote_text: str
+    quote_markdown: str
     quote_url: str

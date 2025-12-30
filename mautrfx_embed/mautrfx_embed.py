@@ -1,7 +1,8 @@
 import asyncio
+import html2text
 import aiohttp
-import io
 import filetype
+import io
 import re
 from aiohttp import ClientError, ClientTimeout
 from maubot import Plugin, MessageEvent
@@ -25,12 +26,13 @@ class MautrFxEmbedBot(Plugin):
     headers = {
         "User-Agent": "MautrFxEmbedBot/1.0.0"
     }
-    twitter_domains = ["fixupx.com", "fxtwitter.com", "fixvx.com", "vxtwitter.com", "stupidpenisx.com", "girlcockx.com",
-                       "nitter.net", "xcancel.com", "nitter.poast.org", "nitter.privacyredirect.com", "lightbrd.com",
-                       "nitter.space", "nitter.tierkoetter.com", "nuku.trabun.org", "nitter.catsarch.com",
-                       "x.com", "twitter.com",]
-    bsky_domains = ["fxbsky.app/profile", "skyview.social/?url=https://bsky.app/profile/",
-                    "skyview.social/?url=bsky.app/profile/", "bsky.app/profile"]
+    twitter_domains = ["x.com", "twitter.com", "fixupx.com", "fxtwitter.com", "fixvx.com", "vxtwitter.com", "stupidpenisx.com",
+                       "girlcockx.com", "nitter.net", "xcancel.com", "nitter.poast.org", "nitter.privacyredirect.com", "lightbrd.com",
+                       "nitter.space", "nitter.tierkoetter.com", "nuku.trabun.org", "nitter.catsarch.com"]
+    bsky_domains = ["bsky.app/profile", "fxbsky.app/profile",
+                    "skyview.social/?url=https://bsky.app/profile/", "skyview.social/?url=bsky.app/profile/"]
+    instagram_domains = ["www.instagram.com/reel", "www.kkinstagram.com/reel", "kkinstagram.com/reel",
+                         "www.uuinstagram.com/reel", "uuinstagram.com/reel",]
 
     async def start(self) -> None:
         await super().start()
@@ -61,10 +63,9 @@ class MautrFxEmbedBot(Plugin):
     async def parse_preview(self, preview_raw: Any, url: str) -> Preview:
         if "api.fxtwitter.com" in url:
             return await self.parse_twitter_preview(preview_raw)
-        elif "api.bsky.app" in url:
+        if "api.bsky.app" in url:
             return await self.parse_bsky_preview(preview_raw)
-        else:
-            return await self.parse_mastodon_preview(preview_raw)
+        return await self.parse_mastodon_preview(preview_raw)
 
     async def parse_mastodon_preview(self, preview_raw: Any) -> Preview:
         """
@@ -88,7 +89,7 @@ class MautrFxEmbedBot(Plugin):
             quote_text = quote["quoted_status"]["content"]
             quote_author_name = quote["quoted_status"]["account"]["display_name"]
             quote_author_url = quote["quoted_status"]["account"]["url"]
-            quote_author_screen_name = quote["quoted_status"]["account"]["acct"]
+            quote_author_screen_name = quote["quoted_status"]["account"]["username"]
 
         # Multimedia
         media = preview_raw.get("media_attachments")
@@ -96,12 +97,12 @@ class MautrFxEmbedBot(Plugin):
         videos: list[Video] = []
         if media is not None:
             for elem in media:
-                if elem["type"] == "video":
+                if elem["type"] in ["video", "gifv", "audio"]:
                     video = Video(
-                        width=elem["meta"]["original"]["width"],
-                        height=elem["meta"]["original"]["height"],
+                        width=elem["meta"]["small"]["width"],
+                        height=elem["meta"]["small"]["height"],
                         url=elem["url"],
-                        thumbnail_url=elem["thumbnail_url"],
+                        thumbnail_url=elem["preview_url"],
                     )
                     videos.append(video)
                 elif elem["type"] == "image":
@@ -114,27 +115,35 @@ class MautrFxEmbedBot(Plugin):
 
         # Link
         link: Link = None
-        link_raw = preview_raw.get("card")
-        if link_raw is not None:
-            if link_raw["type"] == "link":
-                link = Link(
-                        title=link_raw["title"],
-                        description=link_raw["description"],
-                        url=link_raw["url"]
-                    )
+        card = preview_raw.get("card")
+        if card is not None:
+            link = Link(
+                    title=card["title"],
+                    description=card["description"],
+                    url=card["url"]
+                )
 
         # Time
         time = int(mktime(strptime(preview_raw["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z")))
 
+        # HTML adjustments / Markdown message
+        content = await asyncio.get_event_loop().run_in_executor(None, self.strip_html_parts, preview_raw["content"])
+        quote_text = await asyncio.get_event_loop().run_in_executor(None, self.strip_html_parts, quote_text)
+        text_maker = html2text.HTML2Text()
+        text_maker.body_width = 65536
+        md_text = await asyncio.get_event_loop().run_in_executor(None, text_maker.handle, content)
+        md_quote_text = await asyncio.get_event_loop().run_in_executor(None, text_maker.handle, quote_text)
+
         return Preview(
-            text=preview_raw["content"],
+            text=content,
+            markdown=md_text,
             replies=preview_raw["replies_count"],
             retweets=preview_raw["reblogs_count"],
             likes=preview_raw["favourites_count"],
             views=None,
             community_note=None,
             author_name=preview_raw["account"]["display_name"],
-            author_screen_name=preview_raw["account"]["acct"],
+            author_screen_name=preview_raw["account"]["username"],
             author_url=preview_raw["account"]["url"],
             tweet_date=time,
             mosaic=None,
@@ -144,10 +153,25 @@ class MautrFxEmbedBot(Plugin):
             link=link,
             quote_url=quote_url,
             quote_text=quote_text,
+            quote_markdown=md_quote_text,
             quote_author_name=quote_author_name,
             quote_author_url=quote_author_url,
             quote_author_screen_name=quote_author_screen_name
         )
+
+    def strip_html_parts(self, text: str) -> str:
+        """
+        Mastodon provides HTML formatted text ootb. Remove redundant tags
+        :param text:
+        :return:
+        """
+        # Remove inline quote, it's redundant
+        content = re.sub(r"<p\sclass=\"quote-inline\">.*?</p>", "", text)
+        # Remove invisible span
+        content = re.sub(r"<span\sclass=\"invisible\">[^<>]*?</span>", "", content)
+        # Replace ellipsis span with an actual ellipsis
+        content = re.sub(r"<span\sclass=\"ellipsis\">([^<>]*?)</span>", r"\1...", content)
+        return content
 
     async def parse_bsky_preview(self, preview_raw: Any) -> Preview:
         """
@@ -262,10 +286,11 @@ class MautrFxEmbedBot(Plugin):
                 )
 
         # Time
-        time = int(mktime(strptime(preview_raw["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z")))
+        time = int(mktime(strptime(preview_raw["record"]["createdAt"], "%Y-%m-%dT%H:%M:%S.%f%z")))
 
         return Preview(
             text=preview_raw["record"]["text"],
+            markdown=None,
             replies=preview_raw["replyCount"],
             retweets=preview_raw["repostCount"],
             likes=preview_raw["likeCount"],
@@ -282,6 +307,7 @@ class MautrFxEmbedBot(Plugin):
             link=link,
             quote_url=quote_url,
             quote_text=quote_text,
+            quote_markdown=None,
             quote_author_name=quote_author_name,
             quote_author_url=quote_author_url,
             quote_author_screen_name=quote_author_screen_name
@@ -384,6 +410,7 @@ class MautrFxEmbedBot(Plugin):
 
         return Preview(
             text=preview_raw["raw_text"]["text"],
+            markdown=None,
             replies=preview_raw["replies"],
             retweets=preview_raw["retweets"],
             likes=preview_raw["likes"],
@@ -400,6 +427,7 @@ class MautrFxEmbedBot(Plugin):
             link=None,
             quote_url=quote_url,
             quote_text=quote_text,
+            quote_markdown=None,
             quote_author_name=quote_author_name,
             quote_author_url=quote_author_url,
             quote_author_screen_name=quote_author_screen_name
@@ -437,11 +465,16 @@ class MautrFxEmbedBot(Plugin):
         """
         # Author, text
         preview.facets.sort(key=lambda f: f.byte_start)
-        body_text = await self.replace_facets(preview.text, preview.facets)
+        body_text = preview.text
+        html_text = preview.text
+        if preview.facets:
+            body_text = await self.replace_facets(preview.text, preview.facets)
+            html_text = await self.replace_facets(preview.text, preview.facets, is_html=True)
+        if preview.markdown:
+            body_text = preview.markdown
         author_name = preview.author_name if preview.author_name else preview.author_screen_name
         body = (f"> [**{author_name}** **(@{preview.author_screen_name})**]({preview.author_url})   \n>  \n"
                 f"> {body_text.replace('\n', '  \n> ')}  \n>  \n")
-        html_text = await self.replace_facets(preview.text, preview.facets, is_html=True)
         html = (
             f"<blockquote>"
             f"<p><a href=\"{preview.author_url}\"><b>{author_name} (@{preview.author_screen_name})</b></a></p>"
@@ -450,9 +483,10 @@ class MautrFxEmbedBot(Plugin):
 
         # Quote
         if preview.quote_text:
+            quote_body = preview.quote_markdown if preview.quote_markdown is not None else preview.quote_text
             body += (f"> > [**Quoting**]({preview.quote_url}) {preview.quote_author_name} "
                      f"**([@{preview.quote_author_screen_name}]({preview.quote_author_url}))**  \n> >  \n"
-                     f"> > {preview.quote_text.replace('\n', '  \n> > ')}  \n>  \n")
+                     f"> > {quote_body.replace('\n', '  \n> > ')}  \n>  \n")
             html += (f"<blockquote>"
                      f"<p><a href=\"{preview.quote_url}\"><b>Quoting</b></a> <b>{preview.quote_author_name} "
                      f"(</b><a href=\"{preview.quote_author_url}\"><b>@{preview.quote_author_screen_name}</b></a><b>)</b></p>"
@@ -491,9 +525,13 @@ class MautrFxEmbedBot(Plugin):
 
         # External link
         if preview.link:
-            body += f"> > [**{preview.link.title}**]({preview.link.url})  \n> > {preview.link.description}"
-            html += (f"<blockquote><p><a href=\"{preview.link.url}\"><b>{preview.link.title}</b></a></p>"
-                     f"<p>{preview.link.description}</p></blockquote>")
+            body += f"> > [**{preview.link.title}**]({preview.link.url})"
+            html += f"<blockquote><p><a href=\"{preview.link.url}\"><b>{preview.link.title}</b></a></p>"
+            if preview.link.description:
+                body += f"  \n> > {preview.link.description}"
+                html += f"<p>{preview.link.description}</p>"
+            body += "  \n>  \n"
+            html += "</blockquote>"
 
         # Community Note
         if preview.community_note:
