@@ -12,7 +12,7 @@ from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 from PIL import Image
 from time import strftime, localtime, strptime, mktime
 from typing import Tuple, Any, Type
-from .resources.datastructures import Preview, Photo, Video, Facet, Link
+from .resources.datastructures import Preview, Photo, Video, Facet, Link, Poll, Choice
 
 
 class Config(BaseProxyConfig):
@@ -31,8 +31,8 @@ class MautrFxEmbedBot(Plugin):
                        "nitter.space", "nitter.tierkoetter.com", "nuku.trabun.org", "nitter.catsarch.com"]
     bsky_domains = ["bsky.app/profile", "fxbsky.app/profile",
                     "skyview.social/?url=https://bsky.app/profile/", "skyview.social/?url=bsky.app/profile/"]
-    instagram_domains = ["www.instagram.com/reel", "www.kkinstagram.com/reel", "kkinstagram.com/reel",
-                         "www.uuinstagram.com/reel", "uuinstagram.com/reel",]
+    instagram_domains = ["www.instagram.com/reel", "instagram.com/reel", "www.kkinstagram.com/reel", "kkinstagram.com/reel",
+                         "www.uuinstagram.com/reel", "uuinstagram.com/reel"]
 
     async def start(self) -> None:
         await super().start()
@@ -49,7 +49,13 @@ class MautrFxEmbedBot(Plugin):
 
         previews = []
         for url in canonical_urls:
-            preview_raw = await self.get_preview(url)
+            if "kkinstagram.com/reel" in url:
+                preview_raw = await self.get_instagram_preview(url)
+                # For private reels kkinstagram returns original reel URL
+                if "https://www.instagram.com/reel" in preview_raw:
+                    continue
+            else:
+                preview_raw = await self.get_preview(url)
             if preview_raw:
                 try:
                     preview = await self.parse_preview(preview_raw, url)
@@ -60,12 +66,59 @@ class MautrFxEmbedBot(Plugin):
             content = await self.prepare_message(preview)
             await evt.respond(content)
 
+    async def get_instagram_preview(self, url: str) -> str:
+        """
+        Get url to Instagram video preview.
+        :param url: source URL
+        :return: Instagram video preview url
+        """
+        headers = {'User-Agent': "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)"}
+        timeout = ClientTimeout(total=20)
+        try:
+            response = await self.http.get(url, headers=headers, timeout=timeout, raise_for_status=True, allow_redirects=False)
+            return response.headers["location"]
+        except ClientError as e:
+            self.log.error(f"Connection failed: {e}")
+            return ""
+        except Exception as e:
+            self.log.error(f"Unexpected error: {e}")
+            return ""
+
     async def parse_preview(self, preview_raw: Any, url: str) -> Preview:
         if "api.fxtwitter.com" in url:
             return await self.parse_twitter_preview(preview_raw)
         if "api.bsky.app" in url:
             return await self.parse_bsky_preview(preview_raw)
+        if "www.kkinstagram.com/reel" in url:
+            return await self.parse_instagram_preview(preview_raw)
         return await self.parse_mastodon_preview(preview_raw)
+
+    async def parse_instagram_preview(self, preview_url: str) -> Preview:
+        return Preview(
+            text=None,
+            markdown=None,
+            replies=None,
+            retweets=None,
+            likes=None,
+            views=None,
+            community_note=None,
+            author_name="Video link",
+            author_screen_name="Instagram",
+            author_url=preview_url,
+            tweet_date=None,
+            mosaic=None,
+            photos=[],
+            videos=[],
+            facets=[],
+            poll=None,
+            link=None,
+            quote_url=None,
+            quote_text=None,
+            quote_markdown=None,
+            quote_author_name=None,
+            quote_author_url=None,
+            quote_author_screen_name=None
+        )
 
     async def parse_mastodon_preview(self, preview_raw: Any) -> Preview:
         """
@@ -118,21 +171,47 @@ class MautrFxEmbedBot(Plugin):
         card = preview_raw.get("card")
         if card is not None:
             link = Link(
-                    title=card["title"],
-                    description=card["description"],
-                    url=card["url"]
-                )
+                title=card["title"],
+                description=card["description"],
+                url=card["url"]
+            )
 
         # Time
-        time = int(mktime(strptime(preview_raw["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z")))
+        time = None
+        if preview_raw["created_at"]:
+            time = int(mktime(strptime(preview_raw["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z")))
 
         # HTML adjustments / Markdown message
-        content = await asyncio.get_event_loop().run_in_executor(None, self.strip_html_parts, preview_raw["content"])
-        quote_text = await asyncio.get_event_loop().run_in_executor(None, self.strip_html_parts, quote_text)
+        content = ""
+        md_text = ""
+        md_quote_text = ""
         text_maker = html2text.HTML2Text()
         text_maker.body_width = 65536
-        md_text = await asyncio.get_event_loop().run_in_executor(None, text_maker.handle, content)
-        md_quote_text = await asyncio.get_event_loop().run_in_executor(None, text_maker.handle, quote_text)
+        if preview_raw["content"]:
+            content = await asyncio.get_event_loop().run_in_executor(None, self.strip_html_parts, preview_raw["content"])
+            md_text = await asyncio.get_event_loop().run_in_executor(None, text_maker.handle, content)
+        if quote_text:
+            quote_text = await asyncio.get_event_loop().run_in_executor(None, self.strip_html_parts, quote_text)
+            md_quote_text = await asyncio.get_event_loop().run_in_executor(None, text_maker.handle, quote_text)
+
+        # Poll
+        poll = None
+        poll_raw = preview_raw.get("poll")
+        if poll_raw is not None:
+            choices: list[Choice] = []
+            for option in poll_raw["options"]:
+                choice = Choice(
+                    label=option["title"],
+                    votes_count=option["votes_count"],
+                    percentage=round(option["votes_count"] / poll_raw["voters_count"] * 100, 1),
+                )
+                choices.append(choice)
+            poll = Poll(
+                ends_at=poll_raw["expires_at"],
+                status="Final results" if poll_raw["expired"] is True else "Ongoing",
+                total_voters=poll_raw["voters_count"],
+                choices=choices
+            )
 
         return Preview(
             text=content,
@@ -150,6 +229,7 @@ class MautrFxEmbedBot(Plugin):
             photos=photos,
             videos=videos,
             facets=[],
+            poll=poll,
             link=link,
             quote_url=quote_url,
             quote_text=quote_text,
@@ -167,6 +247,9 @@ class MautrFxEmbedBot(Plugin):
         """
         # Remove inline quote, it's redundant
         content = re.sub(r"<p\sclass=\"quote-inline\">.*?</p>", "", text)
+        # Replace paragraph tags with newlines
+        content = re.sub(r"</p><p>", r"<br>", content)
+        content = re.sub(r"<p>|</p>", r"", content)
         # Remove invisible span
         content = re.sub(r"<span\sclass=\"invisible\">[^<>]*?</span>", "", content)
         # Replace ellipsis span with an actual ellipsis
@@ -286,7 +369,9 @@ class MautrFxEmbedBot(Plugin):
                 )
 
         # Time
-        time = int(mktime(strptime(preview_raw["record"]["createdAt"], "%Y-%m-%dT%H:%M:%S.%f%z")))
+        time = None
+        if preview_raw["record"]["createdAt"]:
+            time = int(mktime(strptime(preview_raw["record"]["createdAt"], "%Y-%m-%dT%H:%M:%S.%f%z")))
 
         return Preview(
             text=preview_raw["record"]["text"],
@@ -304,6 +389,7 @@ class MautrFxEmbedBot(Plugin):
             photos=photos,
             videos=videos,
             facets=facets,
+            poll=None,
             link=link,
             quote_url=quote_url,
             quote_text=quote_text,
@@ -408,8 +494,31 @@ class MautrFxEmbedBot(Plugin):
         if community_note is not None:
             community_note_text = community_note["text"]
 
+        # Remove useless non-functional links added at the end of some tweets with media attached
+        text_raw = re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", preview_raw["raw_text"]["text"])
+        quote_text_raw = re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", quote_text)
+
+        # Poll
+        poll = None
+        poll_raw = preview_raw.get("poll")
+        if poll_raw is not None:
+            choices: list[Choice] = []
+            for option in poll_raw["choices"]:
+                choice = Choice(
+                    label=option["label"],
+                    votes_count=option["count"],
+                    percentage=option["percentage"],
+                )
+                choices.append(choice)
+            poll = Poll(
+                ends_at=poll_raw["ends_at"],
+                status=poll_raw["time_left_en"],
+                total_voters=poll_raw["total_votes"],
+                choices=choices
+            )
+
         return Preview(
-            text=preview_raw["raw_text"]["text"],
+            text=text_raw,
             markdown=None,
             replies=preview_raw["replies"],
             retweets=preview_raw["retweets"],
@@ -424,9 +533,10 @@ class MautrFxEmbedBot(Plugin):
             photos=photos,
             videos=videos,
             facets=facets,
+            poll=poll,
             link=None,
             quote_url=quote_url,
-            quote_text=quote_text,
+            quote_text=quote_text_raw,
             quote_markdown=None,
             quote_author_name=quote_author_name,
             quote_author_url=quote_author_url,
@@ -464,42 +574,59 @@ class MautrFxEmbedBot(Plugin):
         :return: body and HTML for preview message
         """
         # Author, text
-        preview.facets.sort(key=lambda f: f.byte_start)
         body_text = preview.text
         html_text = preview.text
-        if preview.facets:
+        if preview.text and preview.facets:
+            preview.facets.sort(key=lambda f: f.byte_start)
             body_text = await self.replace_facets(preview.text, preview.facets)
             html_text = await self.replace_facets(preview.text, preview.facets, is_html=True)
         if preview.markdown:
             body_text = preview.markdown
         author_name = preview.author_name if preview.author_name else preview.author_screen_name
-        body = (f"> [**{author_name}** **(@{preview.author_screen_name})**]({preview.author_url})   \n>  \n"
-                f"> {body_text.replace('\n', '  \n> ')}  \n>  \n")
+        body = f"> [**{author_name}** **(@{preview.author_screen_name})**]({preview.author_url})   \n>  \n"
+        if body_text:
+            body += f"> {body_text.replace('\n', '  \n> ')}  \n>  \n"
         html = (
             f"<blockquote>"
             f"<p><a href=\"{preview.author_url}\"><b>{author_name} (@{preview.author_screen_name})</b></a></p>"
-            f"<p>{html_text.replace('\n', '<br>')}</p>"
         )
+        if html_text:
+            html += f"<p>{html_text.replace('\n', '<br>')}</p>"
+
+        # Poll
+        if preview.poll:
+            poll_html = []
+            poll_body = []
+            for choice in preview.poll.choices:
+                poll_body.append(f"> > {await self.get_chart_bar(choice.percentage)}  \n> > {choice.percentage}% {choice.label}  \n")
+                poll_html.append(f"{await self.get_chart_bar(choice.percentage)}<br>{choice.percentage}% {choice.label}")
+            body += f"{''.join(poll_body)}> >  \n> > {preview.poll.total_voters} voters • {preview.poll.status}  \n>  \n"
+            html += f"<blockquote><p>{'<br>'.join(poll_html)}</p><p>{preview.poll.total_voters} voters • {preview.poll.status}</p></blockquote>"
 
         # Quote
-        if preview.quote_text:
+        if preview.quote_author_screen_name:
             quote_body = preview.quote_markdown if preview.quote_markdown is not None else preview.quote_text
             body += (f"> > [**Quoting**]({preview.quote_url}) {preview.quote_author_name} "
-                     f"**([@{preview.quote_author_screen_name}]({preview.quote_author_url}))**  \n> >  \n"
-                     f"> > {quote_body.replace('\n', '  \n> > ')}  \n>  \n")
+                     f"**([@{preview.quote_author_screen_name}]({preview.quote_author_url}))**  \n")
+            if quote_body:
+                body += f"> > {quote_body.replace('\n', '  \n> > ')}  \n"
+            body += ">  \n"
             html += (f"<blockquote>"
                      f"<p><a href=\"{preview.quote_url}\"><b>Quoting</b></a> <b>{preview.quote_author_name} "
-                     f"(</b><a href=\"{preview.quote_author_url}\"><b>@{preview.quote_author_screen_name}</b></a><b>)</b></p>"
-                     f"<p>{preview.quote_text.replace('\n', '<br>')}</p></blockquote>")
+                     f"(</b><a href=\"{preview.quote_author_url}\"><b>@{preview.quote_author_screen_name}</b></a><b>)</b></p>")
+            if preview.quote_text:
+                html += f"<p>{preview.quote_text.replace('\n', '<br>')}</p>"
+            html += "</blockquote>"
 
         # Replies, retweets, likes, views
-        body += f"> 💬 {preview.replies}  🔁 {preview.retweets}  ❤️ {preview.likes} "
-        html += f"<p><b>💬 {preview.replies}  🔁 {preview.retweets}  ❤️ {preview.likes} "
-        if preview.views:
-            body += f" 👁️ {preview.views}"
-            html += f" 👁️ {preview.views}"
-        body += "  \n>  \n"
-        html += "</b></p>"
+        if preview.replies:
+            body += f"> 💬 {preview.replies}  🔁 {preview.retweets}  ❤️ {preview.likes} "
+            html += f"<p><b>💬 {preview.replies}  🔁 {preview.retweets}  ❤️ {preview.likes} "
+            if preview.views:
+                body += f" 👁️ {preview.views}"
+                html += f" 👁️ {preview.views}"
+            body += "  \n>  \n"
+            html += "</b></p>"
 
         # Multimedia list
         if len(preview.videos) > 0:
@@ -535,13 +662,23 @@ class MautrFxEmbedBot(Plugin):
 
         # Community Note
         if preview.community_note:
-            body += f"> > **Community Note:**  \n> >  \n> > {preview.community_note.replace('\n', '  \n> > ')}  \n>  \n"
+            body += f"> > **Community Note:**  \n> > {preview.community_note.replace('\n', '  \n> > ')}  \n>  \n"
             html += f"<blockquote><p><b>Community Note:</b></p><p>{preview.community_note.replace('\n', '<br>')}</p></blockquote>"
 
         # Footer, date
-        body += f"> **MautrFxEmbed • {strftime('%Y-%m-%d %H:%M', localtime(preview.tweet_date))}**"
-        html += f"<p><b><sub>MautrFxEmbed • {strftime('%Y-%m-%d %H:%M', localtime(preview.tweet_date))}</sub></b></p>"
+        body += f"> **MautrFxEmbed**"
+        html += f"<p><b><sub>MautrFxEmbed</sub></b>"
+        if preview.tweet_date:
+            body += f"** • {strftime('%Y-%m-%d %H:%M', localtime(preview.tweet_date))}**"
+            html += f"<sub><b> • {strftime('%Y-%m-%d %H:%M', localtime(preview.tweet_date))}</sub></b>"
+        html += "</p>"
         return body, html
+
+    async def get_chart_bar(self, percentage: float) -> str:
+        dark_block = "█"
+        light_block = "░"
+        dark_num = round(percentage * 16 / 100)
+        return f"{dark_num * dark_block + (16 - dark_num) * light_block}"
 
     async def prepare_message(self, preview: Preview) -> MessageEventContent:
         """
@@ -552,7 +689,6 @@ class MautrFxEmbedBot(Plugin):
         image_url = ""
         width = 0
         height = 0
-
         # Choose an image to be attached to the message
         if preview.mosaic:
             image_url = preview.mosaic.url
@@ -622,15 +758,19 @@ class MautrFxEmbedBot(Plugin):
         """
         if not self.config["nitter_redirect"]:
             return
-        preview.author_url = preview.author_url.replace("x.com", self.config["nitter_url"])
-        preview.quote_author_url = preview.quote_author_url.replace("x.com", self.config["nitter_url"])
-        preview.quote_url = preview.quote_url.replace("x.com", self.config["nitter_url"])
-        if len(preview.photos) > 0:
-            for photo in preview.photos:
-                photo.url = photo.url.replace("pbs.twimg.com", f"{self.config['nitter_url']}/pic/orig")
-        if len(preview.facets) > 0:
-            for facet in preview.facets:
-                facet.url = facet.url.replace("https://x.com", f"https://{self.config['nitter_url']}")
+        if self.config["nitter_redirect"]:
+            if preview.author_url:
+                preview.author_url = preview.author_url.replace("x.com", self.config["nitter_url"])
+            if preview.quote_author_url:
+                preview.quote_author_url = preview.quote_author_url.replace("x.com", self.config["nitter_url"])
+            if preview.quote_url:
+                preview.quote_url = preview.quote_url.replace("x.com", self.config["nitter_url"])
+            if len(preview.photos) > 0:
+                for photo in preview.photos:
+                    photo.url = photo.url.replace("pbs.twimg.com", f"{self.config['nitter_url']}/pic/orig")
+            if len(preview.facets) > 0:
+                for facet in preview.facets:
+                    facet.url = facet.url.replace("https://x.com", f"https://{self.config['nitter_url']}")
 
     async def get_preview(self, url: str) -> Any:
         """
@@ -665,6 +805,10 @@ class MautrFxEmbedBot(Plugin):
                                .replace("post", "app.bsky.feed.post"))
                     new_url += "&depth=0"
                     canonical_urls.append(new_url)
+                    continue
+            for domain in self.instagram_domains:
+                if f"https://{domain}" in url[1]:
+                    canonical_urls.append(url[1].replace(domain, "www.kkinstagram.com/reel"))
                     continue
             m = re.match(r"(https://.+\.[A-Za-z]+)/@[A-Za-z0-9_]+/([0-9]+)", url[1])
             if m is not None:
