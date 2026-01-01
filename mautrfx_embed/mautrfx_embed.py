@@ -4,6 +4,7 @@ import aiohttp
 import filetype
 import io
 import re
+import time
 from aiohttp import ClientError, ClientTimeout
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
@@ -98,7 +99,7 @@ class MautrFxEmbedBot(Plugin):
             text=None,
             markdown=None,
             replies=None,
-            retweets=None,
+            reposts=None,
             likes=None,
             views=None,
             community_note=None,
@@ -177,9 +178,9 @@ class MautrFxEmbedBot(Plugin):
             )
 
         # Time
-        time = None
+        created = None
         if preview_raw["created_at"]:
-            time = int(mktime(strptime(preview_raw["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z")))
+            created = int(mktime(strptime(preview_raw["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z")))
 
         # HTML adjustments / Markdown message
         content = ""
@@ -206,25 +207,35 @@ class MautrFxEmbedBot(Plugin):
                     percentage=round(option["votes_count"] / poll_raw["voters_count"] * 100, 1),
                 )
                 choices.append(choice)
+            if not poll_raw["expired"]:
+                expires_at = int(mktime(strptime(poll_raw["expires_at"], "%Y-%m-%dT%H:%M:%S.%f%z")))
+                status = await self.get_mastodon_poll_status(expires_at)
+            else:
+                status = "Final results"
             poll = Poll(
                 ends_at=poll_raw["expires_at"],
-                status="Final results" if poll_raw["expired"] is True else "Ongoing",
+                status=status,
                 total_voters=poll_raw["voters_count"],
                 choices=choices
             )
 
+        # Replies, shares, likes
+        replies = await self.format_interaction(preview_raw["replies_count"])
+        shares = await self.format_interaction(preview_raw["reblogs_count"])
+        likes = await self.format_interaction(preview_raw["favourites_count"])
+
         return Preview(
             text=content,
             markdown=md_text,
-            replies=preview_raw["replies_count"],
-            retweets=preview_raw["reblogs_count"],
-            likes=preview_raw["favourites_count"],
+            replies=replies,
+            reposts=shares,
+            likes=likes,
             views=None,
             community_note=None,
             author_name=preview_raw["account"]["display_name"],
             author_screen_name=preview_raw["account"]["username"],
             author_url=preview_raw["account"]["url"],
-            tweet_date=time,
+            tweet_date=created,
             mosaic=None,
             photos=photos,
             videos=videos,
@@ -238,6 +249,33 @@ class MautrFxEmbedBot(Plugin):
             quote_author_url=quote_author_url,
             quote_author_screen_name=quote_author_screen_name
         )
+
+    async def get_mastodon_poll_status(self, expires_at: int) -> str:
+        time_diff = expires_at - int(time.time())
+        d = divmod(time_diff, 86400)  # days
+        h = divmod(d[1], 3600)  # hours
+        m = divmod(h[1], 60)  # minutes
+        s = m[1]  # seconds
+        if d[0]:
+            status = f"{d[0] + 1} days left"
+        elif h[0]:
+            status = f"{h[0] + 1} hours left"
+        elif m[0]:
+            status = f"{m[0] + 1} minutes left"
+        else:
+            status = f"{s + 1} seconds left"
+        return status
+
+    async def format_interaction(self, value: int) -> str:
+        millions = divmod(value, 1000000)
+        thousands = divmod(millions[1], 1000)
+        if millions[0]:
+            formatted_value = f"{millions[0]}.{round(millions[1], -4)//10000}M"
+        elif thousands[0]:
+            formatted_value = f"{thousands[0]}.{round(thousands[1], -2)//100}K"
+        else:
+            formatted_value = f"{thousands[1]}"
+        return formatted_value
 
     def strip_html_parts(self, text: str) -> str:
         """
@@ -369,22 +407,27 @@ class MautrFxEmbedBot(Plugin):
                 )
 
         # Time
-        time = None
+        created = None
         if preview_raw["record"]["createdAt"]:
-            time = int(mktime(strptime(preview_raw["record"]["createdAt"], "%Y-%m-%dT%H:%M:%S.%f%z")))
+            created = int(mktime(strptime(preview_raw["record"]["createdAt"], "%Y-%m-%dT%H:%M:%S.%f%z")))
+
+        # Replies, shares, likes
+        replies = await self.format_interaction(preview_raw["replyCount"])
+        shares = await self.format_interaction(preview_raw["repostCount"])
+        likes = await self.format_interaction(preview_raw["likeCount"])
 
         return Preview(
             text=preview_raw["record"]["text"],
             markdown=None,
-            replies=preview_raw["replyCount"],
-            retweets=preview_raw["repostCount"],
-            likes=preview_raw["likeCount"],
+            replies=replies,
+            reposts=shares,
+            likes=likes,
             views=None,
             community_note="",
             author_name=preview_raw["author"]["displayName"],
             author_screen_name=preview_raw["author"]["handle"],
             author_url="https://bsky.app/profile/" + preview_raw["author"]["handle"],
-            tweet_date=time,
+            tweet_date=created,
             mosaic=None,
             photos=photos,
             videos=videos,
@@ -517,13 +560,19 @@ class MautrFxEmbedBot(Plugin):
                 choices=choices
             )
 
+        # Replies, shares, likes, views
+        replies = await self.format_interaction(preview_raw["replies"])
+        shares = await self.format_interaction(preview_raw["retweets"])
+        likes = await self.format_interaction(preview_raw["likes"])
+        views = await self.format_interaction(preview_raw["views"])
+
         return Preview(
             text=text_raw,
             markdown=None,
-            replies=preview_raw["replies"],
-            retweets=preview_raw["retweets"],
-            likes=preview_raw["likes"],
-            views=preview_raw["views"],
+            replies=replies,
+            reposts=shares,
+            likes=likes,
+            views=views,
             community_note=community_note_text,
             author_name=preview_raw["author"]["name"],
             author_screen_name=preview_raw["author"]["screen_name"],
@@ -600,8 +649,9 @@ class MautrFxEmbedBot(Plugin):
             for choice in preview.poll.choices:
                 poll_body.append(f"> > {await self.get_chart_bar(choice.percentage)}  \n> > {choice.percentage}% {choice.label}  \n")
                 poll_html.append(f"{await self.get_chart_bar(choice.percentage)}<br>{choice.percentage}% {choice.label}")
-            body += f"{''.join(poll_body)}> >  \n> > {preview.poll.total_voters} voters • {preview.poll.status}  \n>  \n"
-            html += f"<blockquote><p>{'<br>'.join(poll_html)}</p><p>{preview.poll.total_voters} voters • {preview.poll.status}</p></blockquote>"
+            body += f"{''.join(poll_body)}> >  \n> > {preview.poll.total_voters:,} voters • {preview.poll.status}  \n>  \n".replace(",", " ")
+            html += (f"<blockquote><p>{'<br>'.join(poll_html)}</p><p>{preview.poll.total_voters:,} voters • {preview.poll.status}</p></blockquote>"
+                     .replace(",", " "))
 
         # Quote
         if preview.quote_author_screen_name:
@@ -620,8 +670,8 @@ class MautrFxEmbedBot(Plugin):
 
         # Replies, retweets, likes, views
         if preview.replies:
-            body += f"> 💬 {preview.replies}  🔁 {preview.retweets}  ❤️ {preview.likes} "
-            html += f"<p><b>💬 {preview.replies}  🔁 {preview.retweets}  ❤️ {preview.likes} "
+            body += f"> 💬 {preview.replies}  🔁 {preview.reposts}  ❤️ {preview.likes} "
+            html += f"<p><b>💬 {preview.replies}  🔁 {preview.reposts}  ❤️ {preview.likes} "
             if preview.views:
                 body += f" 👁️ {preview.views}"
                 html += f" 👁️ {preview.views}"

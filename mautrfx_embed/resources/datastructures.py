@@ -50,10 +50,10 @@ class Poll:
 class Preview:
     text: str
     markdown: str
-    replies: int
-    retweets: int
-    likes: int
-    views: int
+    replies: str
+    reposts: str
+    likes: str
+    views: str
     community_note: str
     author_name: str
     author_screen_name: str
