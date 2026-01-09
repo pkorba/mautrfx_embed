@@ -11,6 +11,7 @@ import filetype
 import html2text
 from PIL import Image
 from aiohttp import ClientError, ClientTimeout
+from mautrix.errors import MatrixResponseError
 from mautrix.types import (
     TextMessageEventContent,
     MediaMessageEventContent,
@@ -844,41 +845,41 @@ class MautrFxEmbedBot(Plugin):
                     height=preview.videos[0].height
                 )
                 full_url = preview.videos[0].url
+                alt = "Video"
             else:
                 image = preview.photos[0]
                 full_url = image.url
+                alt = "Picture"
             # Resize the image - maybe get thumbnails from API if available?
             # Upload the resized image
-            image_mxc = await self.get_matrix_image_url(image, 200)
+            image_mxc, width, height = await self.get_matrix_image_url(image, 300)
             # Wait 0.2s
             # Make preview big, like 200x200
             if image_mxc:
                 body += f"> [![]({image_mxc})]({full_url})  \n>  \n"
-                html += f"<a href=\"{full_url}\"><img src=\"{image_mxc}\" alt=\"\" height=\"200\" ></a>"
+                html += f"<p><a href=\"{full_url}\"><img src=\"{image_mxc}\" alt=\"{alt}\" width=\"{width}\" height=\"{height}\" ></a></p>"
         elif len(preview.videos) + len(preview.photos) > 1:
             thumbs = []
-            for vid in preview.videos:
+            for i, vid in enumerate(preview.videos):
                 image = Photo(
                     url=vid.thumbnail_url,
                     width=vid.width,
                     height=vid.height
                 )
                 full_url = vid.url
-                thumbs.append((image, full_url))
-            for pic in preview.photos:
-                thumbs.append((pic, pic.url))
+                thumbs.append((image, full_url, f"Vid#{i + 1}"))
+            for i, pic in enumerate(preview.photos):
+                thumbs.append((pic, pic.url, f"Pic#{i + 1}"))
             body_thumbs = []
             html_thumbs = []
             for thumb in thumbs:
-                # Upload the resized image
-                image_mxc = await self.get_matrix_image_url(thumb[0], 200)
-                # Wait 0.2s
-                # Make preview big, like 200x200
+                image_mxc, width, height = await self.get_matrix_image_url(thumb[0], 100)
+                await asyncio.sleep(0.5)
                 if image_mxc:
-                    body_thumbs.append(f"[![]({image_mxc})]({thumb[1]})")
-                    html_thumbs.append(f"<a href=\"{thumb[1]}\"><img src=\"{image_mxc}\" alt=\"\" height=\"200\" ></a>")
+                    body_thumbs.append(f"[![{thumb[2]}]({image_mxc})]({thumb[1]})")
+                    html_thumbs.append(f"<a href=\"{thumb[1]}\"><img src=\"{image_mxc}\" alt=\"{thumb[2]}\" width=\"{width}\" height=\"{height}\" ></a>")
             body += f"> {" ".join(body_thumbs)}"
-            html += f"<p>{" ".join(body_thumbs)}</p>"
+            html += f"<p>{" ".join(html_thumbs)}</p>"
 
         # Multimedia list
         if len(preview.videos) > 0:
@@ -958,7 +959,7 @@ class MautrFxEmbedBot(Plugin):
         )
 
 
-    async def get_matrix_image_url(self, image: Photo, new_size: int) -> str | None:
+    async def get_matrix_image_url(self, image: Photo, new_size: int) -> tuple[str, int, int] | None:
         """
         Download image from external URL and upload it to Matrix
         :param url: external URL
@@ -967,42 +968,33 @@ class MautrFxEmbedBot(Plugin):
         try:
             # Download image from external source
             data = await self.get_image(image.url)
-            content_type = await asyncio.get_event_loop().run_in_executor(
-                None,
-                filetype.guess,
-                data
-            )
-            if not content_type:
-                raise TypeError("Failed to determine file type")
-            if content_type not in filetype.image_matchers:
-                raise TypeError("Downloaded file is not an image")
             # API's response doesn't provide information about dimensions for mosaic
-            if not image.width and not image.height:
-                image.width, image.height = await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    self.get_image_dimensions,
-                    data
-                )
+            # if not image.width and not image.height:
+            #     image.width, image.height = await asyncio.get_event_loop().run_in_executor(
+            #         None,
+            #         self.get_image_dimensions,
+            #         data
+            #     )
 
-            width, height = await self.calculate_dimensions(new_size, image.width, image.height)
+            # width, height = await self.calculate_dimensions(new_size, image.width, image.height)
 
             # Generate thumbnail
-            image_data = await asyncio.get_event_loop().run_in_executor(
+            image_data, width, height = await asyncio.get_event_loop().run_in_executor(
                 None,
                 self.get_thumbnail,
-                (data, width, height)
+                (data, new_size, new_size)
             )
 
             # Upload image to Matrix server
             mxc_uri = await self.client.upload_media(
                 data=image_data,
-                mime_type=content_type.mime,
-                filename=f"thumbnail.{content_type.extension}",
-                size=len(data))
-            return mxc_uri
+                mime_type="image/jpeg",
+                filename="thumbnail.jpg",
+                size=len(image_data))
+            return mxc_uri, width, height
         except ClientError as e:
             self.log.error(f"Downloading image - connection failed: {e}")
-        except Exception as e:
+        except (ValueError, MatrixResponseError) as e:
             self.log.error(f"Uploading image to Matrix server: {e}")
 
     async def calculate_dimensions(self, new_size: int, width: int, height: int) -> tuple[int, int]:
@@ -1012,8 +1004,7 @@ class MautrFxEmbedBot(Plugin):
             return new_size, int(new_size * height / width)
         return int(new_size * width / height), new_size
 
-
-    def get_thumbnail(self, image: tuple[bytes, int, int]) -> bytes:
+    def get_thumbnail(self, image: tuple[bytes, int, int]) -> tuple[bytes, int, int]:
         """
         Convert original thumbnail into 100x100 one
         :param image: image data as bytes
@@ -1021,10 +1012,13 @@ class MautrFxEmbedBot(Plugin):
         """
         img = Image.open(io.BytesIO(image[0]))
         img.thumbnail((image[1], image[2]), Image.Resampling.LANCZOS)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
         img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, img.format)
+        img.save(img_byte_arr, format="JPEG", quality=90)
+        img_byte_arr.seek(0)
         image = img_byte_arr.getvalue()
-        return image
+        return image, img.width, img.height
 
     async def prepare_message_old(self, preview: Preview) -> MessageEventContent:
         """
@@ -1197,7 +1191,7 @@ class MautrFxEmbedBot(Plugin):
         try:
             response = await self.http.get(url, raise_for_status=True)
             return await response.read()
-        except aiohttp.ClientError as e:
+        except ClientError as e:
             self.log.error(f"Preparing image - connection failed: {url}: {e}")
         except Exception as e:
             self.log.error(f"Preparing image - unknown error: {url}: {e}")
