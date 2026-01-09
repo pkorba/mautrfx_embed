@@ -47,6 +47,19 @@ class Poll:
 
 
 @dataclass
+class Quote:
+    quote_url: str
+    quote_text: str
+    quote_author_name: str
+    quote_author_url: str
+    quote_author_screen_name: str
+    photos: list[Photo]
+    videos: list[Video]
+    link: Link
+    poll: Poll
+
+
+@dataclass
 class Preview:
     text: str
     markdown: str
@@ -58,16 +71,11 @@ class Preview:
     author_name: str
     author_screen_name: str
     author_url: str
-    tweet_date: int
-    mosaic: Photo
+    post_date: int
     photos: list[Photo]
     videos: list[Video]
     facets: list[Facet]
     poll: Poll
     link: Link
-    quote_author_name: str
-    quote_author_url: str
-    quote_author_screen_name: str
-    quote_text: str
+    quote: Quote
     quote_markdown: str
-    quote_url: str
