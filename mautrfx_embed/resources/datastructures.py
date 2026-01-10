@@ -47,21 +47,9 @@ class Poll:
 
 
 @dataclass
-class Quote:
-    quote_url: str
-    quote_text: str
-    quote_author_name: str
-    quote_author_url: str
-    quote_author_screen_name: str
-    photos: list[Photo]
-    videos: list[Video]
-    link: Link
-    poll: Poll
-
-
-@dataclass
-class Preview:
+class Post:
     text: str
+    url: str
     markdown: str
     replies: str
     reposts: str
@@ -77,5 +65,4 @@ class Preview:
     facets: list[Facet]
     poll: Poll
     link: Link
-    quote: Quote
-    quote_markdown: str
+    quote: Post

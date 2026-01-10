@@ -15,7 +15,7 @@ from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 
-from .resources.datastructures import Preview, Photo, Video, Facet, Link, Poll, Choice, Quote
+from .resources.datastructures import Post, Photo, Video, Facet, Link, Poll, Choice
 
 
 class Config(BaseProxyConfig):
@@ -122,7 +122,7 @@ class MautrFxEmbedBot(Plugin):
             self.log.error(f"Missing 'location' header: {e}")
             return ""
 
-    async def parse_preview(self, preview_raw: Any, url: str) -> Preview:
+    async def parse_preview(self, preview_raw: Any, url: str) -> Post:
         if "api.fxtwitter.com" in url:
             return await self._parse_twitter_preview(preview_raw)
         if "api.bsky.app" in url:
@@ -131,9 +131,10 @@ class MautrFxEmbedBot(Plugin):
             return await self._parse_instagram_preview(preview_raw)
         return await self._parse_mastodon_preview(preview_raw)
 
-    async def _parse_instagram_preview(self, preview_url: str) -> Preview:
-        return Preview(
+    async def _parse_instagram_preview(self, preview_url: str) -> Post:
+        return Post(
             text=None,
+            url=None,
             markdown=None,
             replies=None,
             reposts=None,
@@ -149,11 +150,10 @@ class MautrFxEmbedBot(Plugin):
             facets=[],
             poll=None,
             link=None,
-            quote=None,
-            quote_markdown=None
+            quote=None
         )
 
-    async def _parse_mastodon_preview(self, preview_raw: Any) -> Preview:
+    async def _parse_mastodon_preview(self, preview_raw: Any) -> Post:
         """
         Parse JSON data from Mastodon API
         :param preview_raw: JSON data
@@ -182,8 +182,9 @@ class MautrFxEmbedBot(Plugin):
         videos, photos = await self._masto_parse_media(preview_raw)
         q_videos, q_photos = await self._masto_parse_media(quote["quoted_status"])
 
-        return Preview(
+        return Post(
             text=content,
+            url=None,
             markdown=md_text,
             replies=await self._parse_interaction(preview_raw["replies_count"]),
             reposts=await self._parse_interaction(preview_raw["reblogs_count"]),
@@ -199,32 +200,40 @@ class MautrFxEmbedBot(Plugin):
             facets=[],
             poll=await self._masto_parse_poll(preview_raw),
             link=await self._masto_parse_link(preview_raw),
-            quote_markdown=md_quote_text,
-            quote=Quote(
-                quote_url=quote["quoted_status"]["url"] if quote is not None else "",
-                quote_text=quote_text,
-                quote_author_name=(
+            quote=Post(
+                text=quote_text,
+                url=quote["quoted_status"]["url"] if quote is not None else "",
+                markdown=md_quote_text,
+                replies=None,
+                reposts=None,
+                likes=None,
+                views=None,
+                community_note=None,
+                author_name=(
                     quote["quoted_status"]["account"]["display_name"]
                     if quote is not None else ""
                 ),
-                quote_author_url=(
+                author_url=(
                     quote["quoted_status"]["account"]["url"]
                     if quote is not None else ""
                 ),
-                quote_author_screen_name=(
+                author_screen_name=(
                     quote["quoted_status"]["account"]["username"]
                     if quote is not None else ""
                 ),
+                post_date=None,
                 photos=q_photos,
                 videos=q_videos,
+                facets=[],
+                poll=(
+                    await self._tw_parse_poll(quote["quoted_status"])
+                    if quote is not None else None
+                ),
                 link=(
                     await self._masto_parse_link(quote["quoted_status"])
                     if quote is not None else None
                 ),
-                poll=(
-                    await self._tw_parse_poll(quote["quoted_status"])
-                    if quote is not None else None
-                )
+                quote=None
             )
         )
 
@@ -344,7 +353,7 @@ class MautrFxEmbedBot(Plugin):
             formatted_value = f"{thousands[1]}"
         return formatted_value
 
-    async def _parse_bsky_preview(self, preview_raw: Any) -> Preview:
+    async def _parse_bsky_preview(self, preview_raw: Any) -> Post:
         """
         Parse JSON data from Bsky API
         :param preview_raw: JSON data
@@ -361,21 +370,22 @@ class MautrFxEmbedBot(Plugin):
         photos: list[Photo] = []
         videos: list[Video] = []
         link: Link = None
-        quote: Quote = None
+        quote: Post = None
         if media is not None:
             videos = await self._bsky_parse_videos(media)
             photos = await self._bsky_parse_images(media)
             link = await self._bsky_parse_external(media)
             quote = await self._bsky_parse_quote(media)
 
-        return Preview(
+        return Post(
             text=preview_raw["record"]["text"],
+            url=None,
             markdown=None,
             replies=await self._parse_interaction(preview_raw["replyCount"]),
             reposts=await self._parse_interaction(preview_raw["repostCount"]),
             likes=await self._parse_interaction(preview_raw["likeCount"]),
             views=None,
-            community_note="",
+            community_note=None,
             author_name=preview_raw["author"]["displayName"],
             author_screen_name=preview_raw["author"]["handle"],
             author_url="https://bsky.app/profile/" + preview_raw["author"]["handle"],
@@ -412,7 +422,7 @@ class MautrFxEmbedBot(Plugin):
             videos.append(video)
         return videos
 
-    async def _bsky_parse_quote(self, media: Any) -> Quote | None:
+    async def _bsky_parse_quote(self, media: Any) -> Post | None:
         if "app.bsky.embed.record" in media["$type"]:
             photos: list[Photo] = []
             videos: list[Video] = []
@@ -424,19 +434,28 @@ class MautrFxEmbedBot(Plugin):
                     videos = await self._bsky_parse_videos(elem)
                     link = await self._bsky_parse_external(elem)
 
-            return Quote(
-                quote_url=(
+            return Post(
+                text=media["record"]["value"]["text"],
+                url=(
                     f"https://bsky.app/profile/{media["record"]["author"]["handle"]}/"
                     f"post/{media["record"]["uri"].split("/")[-1]}"
                 ),
-                quote_text=media["record"]["value"]["text"],
-                quote_author_name=media["record"]["author"]["displayName"],
-                quote_author_url=f"https://bsky.app/profile/{media["record"]["author"]["handle"]}",
-                quote_author_screen_name=media["record"]["author"]["handle"],
+                markdown=None,
+                replies=None,
+                reposts=None,
+                likes=None,
+                views=None,
+                community_note=None,
+                author_name=media["record"]["author"]["displayName"],
+                author_screen_name=media["record"]["author"]["handle"],
+                author_url=f"https://bsky.app/profile/{media["record"]["author"]["handle"]}",
+                post_date=None,
                 photos=photos,
                 videos=videos,
+                facets=await self._bsky_parse_facets(media),
+                poll=None,
                 link=link,
-                poll=None
+                quote=None
             )
         return None
 
@@ -484,9 +503,10 @@ class MautrFxEmbedBot(Plugin):
                     )
                 if facet:
                     facets.append(facet)
+                facets.sort(key=lambda f: f.byte_start)
         return facets
 
-    async def _parse_twitter_preview(self, preview_raw: Any) -> Preview:
+    async def _parse_twitter_preview(self, preview_raw: Any) -> Post:
         """
         Parse JSON data from FxTwitter API
         :param preview_raw: JSON data
@@ -501,9 +521,10 @@ class MautrFxEmbedBot(Plugin):
         videos, photos = await self._tw_parse_media(preview_raw)
         q_videos, q_photos = await self._tw_parse_media(quote) if quote is not None else ([], [])
 
-        return Preview(
+        return Post(
             # Remove useless non-functional links added at the end of some tweets with media attached
             text=re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", preview_raw["raw_text"]["text"]),
+            url=None,
             markdown=None,
             replies=await self._parse_interaction(preview_raw["replies"]),
             reposts=await self._parse_interaction(preview_raw["retweets"]),
@@ -519,22 +540,29 @@ class MautrFxEmbedBot(Plugin):
             facets=await self._tw_parse_facets(preview_raw),
             poll=await self._tw_parse_poll(preview_raw),
             link=None,
-            quote_markdown=None,
-            quote=Quote(
-                quote_url=quote["url"] if quote is not None else "",
-                quote_text=(
+            quote=Post(
+                text=(
                     re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", quote["text"])
                     if quote is not None else ""
                 ),
-                quote_author_name=quote["author"]["name"] if quote is not None else "",
-                quote_author_url=quote["author"]["url"] if quote is not None else "",
-                quote_author_screen_name=quote["author"]["screen_name"] if quote is not None else "",
+                url=quote["url"] if quote is not None else "",
+                markdown=None,
+                replies=None,
+                reposts=None,
+                likes=None,
+                views=None,
+                community_note=None,
+                author_name=quote["author"]["name"] if quote is not None else "",
+                author_url=quote["author"]["url"] if quote is not None else "",
+                author_screen_name=quote["author"]["screen_name"] if quote is not None else "",
+                post_date=None,
                 photos=q_photos,
                 videos=q_videos,
+                facets=await self._tw_parse_facets(quote) if quote is not None else None,
+                poll=await self._tw_parse_poll(quote) if quote is not None else None,
                 link=None,
-                poll=await self._tw_parse_poll(quote)
+                quote=None
             )
-
         )
 
     async def _tw_parse_community_note(self, data: Any) -> str:
@@ -622,9 +650,10 @@ class MautrFxEmbedBot(Plugin):
                 # Ignore 'media' type because API returns wrong indices in them
                 if facet:
                     facets.append(facet)
+            facets.sort(key=lambda f: f.byte_start)
         return facets
 
-    async def replace_facets(self, text: str, facets: list[Facet], is_html: bool = False) -> str:
+    async def replace_facets(self, text: str, facets: list[Facet], is_html: bool = True) -> str:
         """
         Replace mentions, tags, URLs in raw_text with appropriate links
         :param text: raw text of the message
@@ -659,7 +688,7 @@ class MautrFxEmbedBot(Plugin):
         dark_num = round(percentage * 16 / 100)
         return f"{dark_num * dark_block + (16 - dark_num) * light_block}"
 
-    async def prepare_message(self, preview: Preview) -> TextMessageEventContent:
+    async def prepare_message_old(self, preview: Post) -> TextMessageEventContent:
         """
         Prepare Twitter preview message text
         :param preview: Preview object with data from API
@@ -818,6 +847,307 @@ class MautrFxEmbedBot(Plugin):
             formatted_body=html
         )
 
+    async def prepare_message(self, preview: Post) -> TextMessageEventContent:
+        """
+        Prepare Twitter preview message text
+        :param preview: Preview object with data from API
+        :return: body and HTML for preview message
+        """
+        html = ""
+        body = ""
+
+        # Author
+        html += await self._get_author(preview)
+        body += await self._get_author(preview, False)
+
+        # Text
+        html += await self._get_text(preview)
+        body += await self._get_text(preview, False)
+
+        # Poll
+        html += await self._get_poll(preview)
+        body += await self._get_poll(preview, False)
+
+        # Multimedia previews
+        html += await self._get_media_previews(preview)
+        body += await self._get_media_previews(preview, False)
+
+        # Multimedia list for clients that have problems displaying images/links
+        # Videos
+        html += await self._get_media_list(preview.videos)
+        body += await self._get_media_list(preview.videos, False)
+        # Photos
+        html += await self._get_media_list(preview.photos)
+        body += await self._get_media_list(preview.photos, False)
+
+        # Quote
+        html += await self._get_quote(preview.quote)
+        body += await self._get_quote(preview.quote, False)
+
+        # Replies, retweets, likes, views
+        html += await self._get_interactions(preview)
+        body += await self._get_interactions(preview, False)
+
+        # External link
+        html += await self._get_external_link(preview.link)
+        body += await self._get_external_link(preview.link, False)
+
+        # Community Note
+        html += await self._get_community_note(preview.community_note)
+        body += await self._get_community_note(preview.community_note, False)
+
+        # Footer, date
+        html += await self._get_footer(preview.post_date)
+        body += await self._get_footer(preview.post_date, False)
+
+        html = f"<blockquote>{html}</blockquote>"
+
+        return TextMessageEventContent(
+            msgtype=MessageType.NOTICE,
+            format=Format.HTML,
+            body=body,
+            formatted_body=html
+        )
+
+    async def _get_link(self, url: str, text: str, is_html: bool = True) -> str:
+        """
+        Return a link as HTML or Markdown
+        :param url: address
+        :param text: displayed text
+        :param is_html: True for HTML, False for Markdown
+        :return: formatted link
+        """
+        # HTML
+        if is_html:
+            return f"<a href=\"{url}\">{text}</a>"
+
+        # Markdown
+        return f"[{text}]({url})"
+
+    async def _get_author(self, data: Post, is_html: bool = True) -> str:
+        author_name = data.author_name if data.author_name else data.author_screen_name
+
+        if is_html:
+            return f"<p>{await self._get_link(
+                data.author_url,
+                f"<b>{author_name} (@{data.author_screen_name})</b>"
+            )}</p>"
+
+        return f"> {await self._get_link(
+            data.author_url,
+            f"**{author_name}** **(@{data.author_screen_name})**",
+            False
+        )}   \n>  \n"
+
+    async def _get_text(self, data: Post, is_html: bool = True) -> str:
+        text = data.text
+        if is_html:
+            if data.text and data.facets:
+                text = await self.replace_facets(data.text, data.facets)
+            return f"<p>{text.replace('\n', '<br>')}</p>"
+
+        if data.text and data.facets:
+            text = await self.replace_facets(data.text, data.facets, False)
+        # It's for Mastodon's case, so there are no facets which is why the previous step is ignored
+        if data.markdown:
+            text = data.markdown
+        return f"> {text.replace('\n', '  \n> ')}  \n>  \n"
+
+    async def _get_poll(self, data: Post, is_html: bool = True) -> str:
+        if not data.poll:
+            return ""
+
+        poll = []
+        for choice in data.poll.choices:
+            if is_html:
+                poll.append(
+                    f"{await self._get_chart_bar(choice.percentage)}<br>{choice.percentage}% {choice.label}")
+            else:
+                poll.append(
+                    f"> > {await self._get_chart_bar(choice.percentage)}  \n> > {choice.percentage}% {choice.label}  \n")
+
+        if is_html:
+            return (
+                f"<blockquote>"
+                f"<p>{'<br>'.join(poll)}</p>"
+                f"<p>{data.poll.total_voters:,} voters • {data.poll.status}</p>"
+                f"</blockquote>"
+                .replace(",", " ")
+            )
+        return (
+            f"{''.join(poll)}> >  \n"
+            f"> > {data.poll.total_voters:,} voters • {data.poll.status}  \n>  \n"
+            .replace(",", " ")
+        )
+
+    async def _get_media_previews(self, data: Post, is_html: bool = True) -> str:
+        if len(data.videos) + len(data.photos) == 0:
+            return ""
+        thumbs_data = []
+        for i, vid in enumerate(data.videos):
+            image = Photo(
+                url=vid.thumbnail_url,
+                width=vid.width,
+                height=vid.height
+            )
+            full_url = vid.url
+            thumbs_data.append((image, full_url, f"Vid#{i + 1}"))
+
+        for i, pic in enumerate(data.photos):
+            thumbs_data.append((pic, pic.url, f"Pic#{i + 1}"))
+        thumbs = []
+
+        for thumb in thumbs_data:
+            image_mxc, width, height = await self._get_matrix_image_url(
+                thumb[0],
+                300 if (len(data.videos) + len(data.photos) == 1) else 100
+            )
+            await asyncio.sleep(0.2)
+            if image_mxc:
+                thumbs.append(f"{await self._get_link(
+                    thumb[1],
+                    await self._get_image(image_mxc, thumb[2], (width, height), is_html),
+                    is_html
+                )}")
+        if is_html:
+            return f"<p>{" ".join(thumbs)}</p>"
+        return f"> {" ".join(thumbs)}  \n>  \n"
+
+    async def _get_image(
+        self,
+        src: str,
+        alt: str = "",
+        size: tuple[int, int] = (0, 0),
+        is_html: bool = True
+    ) -> str:
+        """
+        Get link
+        :param src: source url
+        :param alt: alternative text
+        :param size: width and height
+        :param is_html: True for HTML, False for Markdown
+        :return: formatted image
+        """
+        width = f"width=\"{size[0]}\" " if size[0] else ""
+        height = f"height=\"{size[1]}\" " if size[1] else ""
+        if is_html:
+            return f"<img src=\"{src}\" alt=\"{alt}\" {width}{height}/>"
+        return f"![{alt}]({src})"
+
+    async def _get_media_list(self, media: list, is_html: bool = True) -> str:
+        if len(media) > 0:
+            if isinstance(media[0], Video):
+                title = "Videos"
+                short = "Vid"
+            else:
+                title = "Photos"
+                short = "Pic"
+            i = 1
+            media_formatted = []
+            for video in media:
+                media_formatted.append(await self._get_link(video.url, f"{short}#{i}", is_html))
+                i += 1
+            if is_html:
+                return f"<p><b>{title}: </b>{', '.join(media_formatted)}</p>"
+            return f"> **{title}:** {', '.join(media_formatted)}  \n>  \n"
+        return ""
+
+    async def _get_quote(self, data: Post, is_html: bool = True) -> str:
+        text = ""
+        res = ""
+        text += await self._get_quote_author(data, is_html)
+        res += await self._get_text(data, is_html)
+        text += res if is_html else res.replace("> ", "> > ")
+        res += await self._get_poll(data, is_html)
+        text += res if is_html else res.replace("> > ", "> > > ")
+        res += await self._get_media_previews(data, is_html)
+        text += res if is_html else res.replace("> ", "> > ")
+        res += await self._get_media_list(data.videos, is_html)
+        text += res if is_html else res.replace("> ", "> > ")
+        res += await self._get_media_list(data.photos, is_html)
+        text += res if is_html else res.replace("> ", "> > ")
+        res += await self._get_external_link(data.link, is_html)
+        text += res if is_html else res.replace("> > ", "> > > ")
+        return text
+
+    async def _get_quote_author(self, data: Post, is_html: bool = True) -> str:
+        if not data.author_screen_name:
+            return ""
+        if is_html:
+            return (
+                f"<p><b>"
+                f"{await self._get_link(data.url, "Quoting")} "
+                f"{data.author_name} "
+                f"({await self._get_link(data.author_url, f"@{data.author_screen_name}")})"
+                f"</b></p>"
+            )
+        return (
+            f"> > {await self._get_link(data.url, "**Quoting**")} "
+            f"{data.author_name} "
+            f"**({await self._get_link(
+                data.author_url,
+                f"@{data.author_screen_name}"
+            )})**  \n> >  \n"
+        )
+
+    async def _get_interactions(self, data: Post, is_html: bool = True) -> str:
+        text = []
+        if data.replies:
+            text.append(f"💬 {data.replies}")
+        if data.reposts:
+            text.append(f"🔁 {data.reposts}")
+        if data.likes:
+            text.append(f"❤️ {data.likes}")
+        if data.views:
+            text.append(f"👁️ {data.views}")
+        if text:
+            if is_html:
+                return f"<p><b>{' '.join(text)}</b></p>"
+            return f"> {' '.join(text)}  \n>  \n"
+        return ""
+
+    async def _get_external_link(self, data: Link, is_html: bool = True) -> str:
+        text = ""
+        if data:
+            link = await self._get_link(data.url, data.title, is_html)
+            if is_html:
+                text += f"<blockquote><p><b>{link}</b></p>"
+                if data.description:
+                    text += f"<p>{data.description}</p>"
+                text += "</blockquote>"
+            else:
+                text += f"> > **{link}**"
+                if data.description:
+                    text += f"  \n> > {data.description}"
+                text += "  \n>  \n"
+        return text
+
+    async def _get_community_note(self, note: str, is_html: bool = True) -> str:
+        if not note:
+            return ""
+        if is_html:
+            return (
+                "<blockquote>"
+                "<p><b>Community Note:</b></p>"
+                f"<p>{note.replace('\n', '<br>')}</p>"
+                "</blockquote>"
+            )
+        return (
+            f"> > **Community Note:**  \n"
+            f"> > {note.replace('\n', '  \n> > ')}  \n>  \n"
+        )
+
+    async def _get_footer(self, post_date: int, is_html: bool = True) -> str:
+        date_html = ""
+        date_md = ""
+        if post_date:
+            date = strftime('%Y-%m-%d %H:%M', localtime(post_date))
+            date_html = f"<b><sub> • {date}</sub></b>"
+            date_md = f"** • {date}**"
+        if is_html:
+            return f"<p><b><sub>MautrFxEmbed</sub></b>{date_html}</p>"
+        return f"> **MautrFxEmbed**{date_md}"
+
     async def _get_matrix_image_url(self, image: Photo, size: int) -> tuple[str, int, int] | None:
         """
         Download image from external URL and upload it to Matrix
@@ -826,7 +1156,7 @@ class MautrFxEmbedBot(Plugin):
         """
         try:
             # Download image from external source
-            data = await self._get_image(image.url)
+            data = await self._download_image(image.url)
             if not data:
                 return None
 
@@ -871,7 +1201,7 @@ class MautrFxEmbedBot(Plugin):
             return (b'', 0, 0)
         return image, img.width, img.height
 
-    async def _replace_urls_base(self, preview: Preview) -> None:
+    async def _replace_urls_base(self, preview: Post) -> None:
         """
         If appropriate config values are set, replace original URL with Nitter equivalents
         :param preview: Preview object with data from API
@@ -956,7 +1286,7 @@ class MautrFxEmbedBot(Plugin):
                 canonical_urls.append(new_url)
         return canonical_urls
 
-    async def _get_image(self, url: str) -> bytes | None:
+    async def _download_image(self, url: str) -> bytes | None:
         """
         Download image from external URL
         :param url: external URL
