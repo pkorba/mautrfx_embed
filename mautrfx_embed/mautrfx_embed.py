@@ -223,7 +223,7 @@ class MautrFxEmbedBot(Plugin):
                 photos=q_photos,
                 videos=q_videos,
                 facets=[],
-                poll=await self._tw_parse_poll(quote["quoted_status"]),
+                poll=await self._masto_parse_poll(quote["quoted_status"]),
                 link=await self._masto_parse_link(quote["quoted_status"]),
                 quote=None,
                 translation=None,
