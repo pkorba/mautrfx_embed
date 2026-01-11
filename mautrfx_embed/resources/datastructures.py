@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Self
 
 
 @dataclass
@@ -65,4 +66,4 @@ class Post:
     facets: list[Facet]
     poll: Poll
     link: Link
-    quote: Post
+    quote: Self

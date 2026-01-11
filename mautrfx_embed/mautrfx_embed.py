@@ -424,10 +424,11 @@ class MautrFxEmbedBot(Plugin):
 
     async def _bsky_parse_quote(self, media: Any) -> Post | None:
         if "app.bsky.embed.record" in media["$type"]:
+            media = media["record"]
             photos: list[Photo] = []
             videos: list[Video] = []
             link: Link = None
-            media_rec = media.get("embeds")
+            media_rec = media["record"].get("embeds")
             if media_rec is not None:
                 for elem in media_rec:
                     photos = await self._bsky_parse_images(elem)
@@ -1053,22 +1054,25 @@ class MautrFxEmbedBot(Plugin):
         return ""
 
     async def _get_quote(self, data: Post, is_html: bool = True) -> str:
+        if not data:
+            return ""
         text = ""
-        res = ""
         text += await self._get_quote_author(data, is_html)
-        res += await self._get_text(data, is_html)
+        res = await self._get_text(data, is_html)
         text += res if is_html else res.replace("> ", "> > ")
-        res += await self._get_poll(data, is_html)
+        res = await self._get_poll(data, is_html)
         text += res if is_html else res.replace("> > ", "> > > ")
-        res += await self._get_media_previews(data, is_html)
+        res = await self._get_media_previews(data, is_html)
         text += res if is_html else res.replace("> ", "> > ")
-        res += await self._get_media_list(data.videos, is_html)
+        res = await self._get_media_list(data.videos, is_html)
         text += res if is_html else res.replace("> ", "> > ")
-        res += await self._get_media_list(data.photos, is_html)
+        res = await self._get_media_list(data.photos, is_html)
         text += res if is_html else res.replace("> ", "> > ")
-        res += await self._get_external_link(data.link, is_html)
+        res = await self._get_external_link(data.link, is_html)
         text += res if is_html else res.replace("> > ", "> > > ")
-        return text
+        if text:
+            return f"<blockquote>{text}</blockquote>"
+        return ""
 
     async def _get_quote_author(self, data: Post, is_html: bool = True) -> str:
         if not data.author_screen_name:
