@@ -523,10 +523,8 @@ class MautrFxEmbedBot(Plugin):
             raise ValueError("Bad response")
 
         preview_raw = preview_raw["tweet"]
-
         videos, photos = await self._tw_parse_media(preview_raw)
         translation = preview_raw.get("translation")
-
         post = Post(
             # Remove non-functional links added at the end of some tweets with media attached
             text=preview_raw["raw_text"]["text"],
@@ -551,7 +549,6 @@ class MautrFxEmbedBot(Plugin):
             translation_lang=translation["source_lang_en"] if translation is not None else None,
             qtype="twitter"
         )
-
         return post
 
     async def _tw_parse_quote(self, data: Any) -> Post | None:
@@ -816,12 +813,18 @@ class MautrFxEmbedBot(Plugin):
             return ""
 
         if is_html:
-            if data.text and data.facets:
+            if data.facets:
                 text = await self._replace_facets(data.text, data.facets, data.qtype)
+            # Remove useless t.co links that are added to raw text by the FxTwitter API
+            # This has to be done AFTER the facets have been substituted
+            if data.qtype == "twitter":
+                text = re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", text)
             return f"<p>{text.replace('\n', '<br>')}</p>"
 
-        if data.text and data.facets:
+        if data.facets:
             text = await self._replace_facets(data.text, data.facets, data.qtype, False)
+        if data.qtype == "twitter":
+            text = re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", text)
         # It's for Mastodon's case, so there are no facets which is why the previous step is ignored
         if data.markdown:
             text = data.markdown
