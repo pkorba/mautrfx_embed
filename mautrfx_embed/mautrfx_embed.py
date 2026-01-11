@@ -663,15 +663,31 @@ class MautrFxEmbedBot(Plugin):
                 if facet:
                     facets.append(facet)
             facets.sort(key=lambda f: f.byte_start)
-
-            # Replace Twitter links with Nitter links
-            if self.config["nitter_redirect"]:
-                for facet in facets:
-                    facet.url = facet.url.replace(
-                        "https://x.com",
-                        f"https://{self.config['nitter_url']}"
-                    )
         return facets
+
+    async def _tw_replace_urls(self, data: Post) -> None:
+        """
+        If appropriate config values are set, replace original URL with Nitter equivalents
+        :param preview: Preview object with data from API
+        :return:
+        """
+        if data.qtype != "twitter" or not self.config["nitter_redirect"]:
+            return
+
+        if data.author_url:
+            data.author_url = data.author_url.replace("x.com", self.config["nitter_url"])
+        if data.url:
+            data.url = data.url.replace("x.com", self.config["nitter_url"])
+
+        if len(data.facets) > 0:
+            for facet in data.facets:
+                facet.url = facet.url.replace(
+                    "https://x.com",
+                    f"https://{self.config['nitter_url']}"
+                )
+
+        if data.quote:
+            await self._tw_replace_urls(data.quote)
 
     async def _replace_facets(
             self,
@@ -719,6 +735,8 @@ class MautrFxEmbedBot(Plugin):
         :param preview: Preview object with data from API
         :return: body and HTML for preview message
         """
+        await self._tw_replace_urls(preview)
+
         html = ""
         body = ""
 
@@ -796,8 +814,6 @@ class MautrFxEmbedBot(Plugin):
 
     async def _get_author(self, data: Post, is_html: bool = True) -> str:
         author_name = data.author_name if data.author_name else data.author_screen_name
-        # Replace x.com links with nitter links
-        await self._replace_author_url(data)
 
         if is_html:
             return f"<p>{await self._get_link(
@@ -975,8 +991,6 @@ class MautrFxEmbedBot(Plugin):
     async def _get_quote_author(self, data: Post, is_html: bool = True) -> str:
         if not data.author_screen_name:
             return ""
-        # Replace x.com links with nitter links
-        await self._replace_author_url(data)
 
         link = await self._get_link(data.author_url, f"@{data.author_screen_name}", is_html)
         if is_html:
