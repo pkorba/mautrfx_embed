@@ -238,9 +238,6 @@ class MautrFxEmbedBot(Plugin):
         # HTML
         # Remove inline quote, it's redundant
         content = re.sub(r"<p\sclass=\"quote-inline\">.*?</p>", "", text)
-        # Replace paragraph tags with newlines
-        # content = re.sub(r"</p><p>", r"<br>", content)
-        # content = re.sub(r"<p>|</p>", r"", content)
         # Remove invisible span
         content = re.sub(r"<span\sclass=\"invisible\">[^<>]*?</span>", "", content)
         # Replace ellipsis span with an actual ellipsis
@@ -666,6 +663,14 @@ class MautrFxEmbedBot(Plugin):
                 if facet:
                     facets.append(facet)
             facets.sort(key=lambda f: f.byte_start)
+
+            # Replace Twitter links with Nitter links
+            if self.config["nitter_redirect"]:
+                for facet in facets:
+                    facet.url = facet.url.replace(
+                        "https://x.com",
+                        f"https://{self.config['nitter_url']}"
+                    )
         return facets
 
     async def _replace_facets(
@@ -714,9 +719,6 @@ class MautrFxEmbedBot(Plugin):
         :param preview: Preview object with data from API
         :return: body and HTML for preview message
         """
-        # Replace Twitter links with Nitter where possible
-        await self._replace_urls_base(preview)
-
         html = ""
         body = ""
 
@@ -794,6 +796,8 @@ class MautrFxEmbedBot(Plugin):
 
     async def _get_author(self, data: Post, is_html: bool = True) -> str:
         author_name = data.author_name if data.author_name else data.author_screen_name
+        # Replace x.com links with nitter links
+        await self._replace_author_url(data)
 
         if is_html:
             return f"<p>{await self._get_link(
@@ -890,8 +894,8 @@ class MautrFxEmbedBot(Plugin):
 
         for i, pic in enumerate(data.photos):
             thumbs_data.append((pic, pic.url, f"Pic#{i + 1}"))
-        thumbs = []
 
+        thumbs = []
         for thumb in thumbs_data:
             image_mxc, width, height = await self._get_matrix_image_url(
                 thumb[0],
@@ -939,8 +943,8 @@ class MautrFxEmbedBot(Plugin):
                 short = "Pic"
             i = 1
             media_formatted = []
-            for video in media:
-                media_formatted.append(await self._get_link(video.url, f"{short}#{i}", is_html))
+            for med in media:
+                media_formatted.append(await self._get_link(med.url, f"{short}#{i}", is_html))
                 i += 1
             if is_html:
                 return f"<p><b>{title}: </b>{', '.join(media_formatted)}</p>"
@@ -971,6 +975,9 @@ class MautrFxEmbedBot(Plugin):
     async def _get_quote_author(self, data: Post, is_html: bool = True) -> str:
         if not data.author_screen_name:
             return ""
+        # Replace x.com links with nitter links
+        await self._replace_author_url(data)
+
         link = await self._get_link(data.author_url, f"@{data.author_screen_name}", is_html)
         if is_html:
             return (
@@ -982,6 +989,14 @@ class MautrFxEmbedBot(Plugin):
             f"> > {await self._get_link(data.url, "**Quoting**", False)} "
             f"{data.author_name} **({link})**  \n> >  \n"
         )
+
+    async def _replace_author_url(self, data: Post) -> None:
+        # Replace x.com links with nitter links
+        if data.qtype == "twitter" and self.config["nitter_redirect"]:
+            if data.author_url:
+                data.author_url = data.author_url.replace("x.com", self.config["nitter_url"])
+            if data.url:
+                data.url = data.url.replace("x.com", self.config["nitter_url"])
 
     async def _get_interactions(self, data: Post, is_html: bool = True) -> str:
         text = []
@@ -1098,34 +1113,6 @@ class MautrFxEmbedBot(Plugin):
             self.log.error(f"Error generating thumbnail: {e}")
             return (b'', 0, 0)
         return image, img.width, img.height
-
-    async def _replace_urls_base(self, preview: Post) -> None:
-        """
-        If appropriate config values are set, replace original URL with Nitter equivalents
-        :param preview: Preview object with data from API
-        :return:
-        """
-        if not self.config["nitter_redirect"]:
-            return
-
-        if preview.author_url:
-            preview.author_url = preview.author_url.replace("x.com", self.config["nitter_url"])
-        if preview.url:
-            preview.url = preview.url.replace("x.com", self.config["nitter_url"])
-        if len(preview.photos) > 0:
-            for photo in preview.photos:
-                photo.url = photo.url.replace(
-                    "pbs.twimg.com",
-                    f"{self.config['nitter_url']}/pic/orig"
-                )
-        if len(preview.facets) > 0:
-            for facet in preview.facets:
-                facet.url = facet.url.replace(
-                    "https://x.com",
-                    f"https://{self.config['nitter_url']}"
-                )
-        if preview.quote:
-            await self._replace_urls_base(preview.quote)
 
     async def _get_preview(self, url: str) -> Any:
         """
