@@ -425,7 +425,8 @@ class MautrFxEmbedBot(Plugin):
 
     async def _bsky_parse_quote(self, media: Any) -> Post | None:
         if "app.bsky.embed.record" in media["$type"]:
-            media = media["record"]
+            if "app.bsky.embed.recordWithMedia" in media["$type"]:
+                media = media["record"]
             photos: list[Photo] = []
             videos: list[Video] = []
             link: Link = None
