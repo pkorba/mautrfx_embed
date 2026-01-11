@@ -69,3 +69,4 @@ class Post:
     quote: Self
     translation: str
     translation_lang: str
+    qtype: str

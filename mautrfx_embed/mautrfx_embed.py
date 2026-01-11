@@ -36,6 +36,7 @@ class MautrFxEmbedBot(Plugin):
         "fxtwitter.com",
         "fixvx.com",
         "vxtwitter.com",
+        "fixvtwitter.com"
         "stupidpenisx.com",
         "girlcockx.com",
         "nitter.net",
@@ -152,7 +153,8 @@ class MautrFxEmbedBot(Plugin):
             link=None,
             quote=None,
             translation=None,
-            translation_lang=None
+            translation_lang=None,
+            qtype="instagram"
         )
 
     async def _parse_mastodon_preview(self, preview_raw: Any) -> Post:
@@ -191,7 +193,8 @@ class MautrFxEmbedBot(Plugin):
             link=await self._masto_parse_link(preview_raw),
             quote=await self._masto_parse_quote(preview_raw),
             translation=None,
-            translation_lang=None
+            translation_lang=None,
+            qtype="twitter"
         )
 
     async def _masto_parse_quote(self, data: Any) -> Post | None:
@@ -224,7 +227,8 @@ class MautrFxEmbedBot(Plugin):
                 link=await self._masto_parse_link(quote["quoted_status"]),
                 quote=None,
                 translation=None,
-                translation_lang=None
+                translation_lang=None,
+                qtype="mastodon"
             )
 
     def _parse_text(self, text: str) -> tuple[str, str]:
@@ -235,8 +239,8 @@ class MautrFxEmbedBot(Plugin):
         # Remove inline quote, it's redundant
         content = re.sub(r"<p\sclass=\"quote-inline\">.*?</p>", "", text)
         # Replace paragraph tags with newlines
-        content = re.sub(r"</p><p>", r"<br>", content)
-        content = re.sub(r"<p>|</p>", r"", content)
+        # content = re.sub(r"</p><p>", r"<br>", content)
+        # content = re.sub(r"<p>|</p>", r"", content)
         # Remove invisible span
         content = re.sub(r"<span\sclass=\"invisible\">[^<>]*?</span>", "", content)
         # Replace ellipsis span with an actual ellipsis
@@ -382,12 +386,13 @@ class MautrFxEmbedBot(Plugin):
             post_date=await self._parse_date(preview_raw["record"]["createdAt"]),
             photos=photos,
             videos=videos,
-            facets=await self._bsky_parse_facets(preview_raw),
+            facets=await self._bsky_parse_facets(preview_raw["record"]),
             poll=None,
             link=link,
             quote=quote,
             translation=None,
-            translation_lang=None
+            translation_lang=None,
+            qtype="bsky"
         )
 
     async def _bsky_parse_images(self, media: Any) -> list[Photo]:
@@ -449,12 +454,13 @@ class MautrFxEmbedBot(Plugin):
                 post_date=None,
                 photos=photos,
                 videos=videos,
-                facets=await self._bsky_parse_facets(media),
+                facets=await self._bsky_parse_facets(media["record"]["value"]),
                 poll=None,
                 link=link,
                 quote=None,
                 translation=None,
-                translation_lang=None
+                translation_lang=None,
+                qtype="bsky"
             )
         return None
 
@@ -470,13 +476,13 @@ class MautrFxEmbedBot(Plugin):
     async def _bsky_parse_facets(self, data: Any) -> list[Facet]:
         # List of elements to substitute for in the raw text message
         facets: list[Facet] = []
-        facets_raw = data["record"].get("facets")
+        facets_raw = data.get("facets")
         if facets_raw is not None:
             for fac in facets_raw:
                 facet = None
                 b_start = fac["index"]["byteStart"]
                 b_end = fac["index"]["byteEnd"]
-                text = data["record"]["text"].encode('utf-8')
+                text = data["text"].encode('utf-8')
                 if fac["features"][0]["$type"] == "app.bsky.richtext.facet#mention":
                     text = text[b_start:b_end].decode('utf-8')
                     facet = Facet(
@@ -522,7 +528,7 @@ class MautrFxEmbedBot(Plugin):
 
         post = Post(
             # Remove non-functional links added at the end of some tweets with media attached
-            text=re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", preview_raw["raw_text"]["text"]),
+            text=preview_raw["raw_text"]["text"],
             url=None,
             markdown=None,
             replies=await self._parse_interaction(preview_raw["replies"]),
@@ -542,10 +548,8 @@ class MautrFxEmbedBot(Plugin):
             quote=await self._tw_parse_quote(preview_raw),
             translation=translation["text"] if translation is not None else None,
             translation_lang=translation["source_lang_en"] if translation is not None else None,
+            qtype="twitter"
         )
-
-        # Replace Twitter links with Nitter where possible
-        await self._replace_urls_base(post)
 
         return post
 
@@ -555,7 +559,7 @@ class MautrFxEmbedBot(Plugin):
             return None
         q_videos, q_photos = await self._tw_parse_media(quote)
         return Post(
-                text=re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", quote["text"]),
+                text=quote["raw_text"]["text"],
                 url=quote["url"],
                 markdown=None,
                 replies=None,
@@ -574,7 +578,8 @@ class MautrFxEmbedBot(Plugin):
                 link=None,
                 quote=None,
                 translation=None,
-                translation_lang=None
+                translation_lang=None,
+                qtype="twitter"
             )
 
     async def _tw_parse_community_note(self, data: Any) -> str:
@@ -665,7 +670,13 @@ class MautrFxEmbedBot(Plugin):
             facets.sort(key=lambda f: f.byte_start)
         return facets
 
-    async def _replace_facets(self, text: str, facets: list[Facet], is_html: bool = True) -> str:
+    async def _replace_facets(
+            self,
+            text: str,
+            facets: list[Facet],
+            qtype: str,
+            is_html: bool = True
+    ) -> str:
         """
         Replace mentions, tags, URLs in raw_text with appropriate links
         :param text: raw text of the message
@@ -673,20 +684,20 @@ class MautrFxEmbedBot(Plugin):
         :param is_html: should method return text with HTML or Markdown
         :return: text with replacements
         """
-        text = text.encode("utf-8")
+        text = text.encode("utf-8") if qtype == "bsky" else text
         text_array = []
         start = 0
         for facet in facets:
             # Append normal text
             text_array.append(text[start:facet.byte_start])
             # Append text replacement from facet
-            text_array.append(
-                (await self._get_link(facet.url, facet.text, is_html)).encode("utf-8")
-            )
+            link = await self._get_link(facet.url, facet.text, is_html)
+            link = link.encode("utf-8") if qtype == "bsky" else link
+            text_array.append(link)
             start = facet.byte_end
         # Append the remaining text
         text_array.append(text[start:])
-        return b"".join(text_array).decode("utf-8")
+        return b"".join(text_array).decode("utf-8") if qtype == "bsky" else "".join(text_array)
 
     async def _get_chart_bar(self, percentage: float) -> str:
         """
@@ -705,6 +716,9 @@ class MautrFxEmbedBot(Plugin):
         :param preview: Preview object with data from API
         :return: body and HTML for preview message
         """
+        # Replace Twitter links with Nitter where possible
+        await self._replace_urls_base(preview)
+
         html = ""
         body = ""
 
@@ -740,13 +754,13 @@ class MautrFxEmbedBot(Plugin):
         html += await self._get_quote(preview.quote)
         body += await self._get_quote(preview.quote, False)
 
-        # Replies, retweets, likes, views
-        html += await self._get_interactions(preview)
-        body += await self._get_interactions(preview, False)
-
         # External link
         html += await self._get_external_link(preview.link)
         body += await self._get_external_link(preview.link, False)
+
+        # Replies, retweets, likes, views
+        html += await self._get_interactions(preview)
+        body += await self._get_interactions(preview, False)
 
         # Community Note
         html += await self._get_community_note(preview.community_note)
@@ -802,11 +816,11 @@ class MautrFxEmbedBot(Plugin):
 
         if is_html:
             if data.text and data.facets:
-                text = await self._replace_facets(data.text, data.facets)
+                text = await self._replace_facets(data.text, data.facets, data.qtype)
             return f"<p>{text.replace('\n', '<br>')}</p>"
 
         if data.text and data.facets:
-            text = await self._replace_facets(data.text, data.facets, False)
+            text = await self._replace_facets(data.text, data.facets, data.qtype, False)
         # It's for Mastodon's case, so there are no facets which is why the previous step is ignored
         if data.markdown:
             text = data.markdown
@@ -1026,7 +1040,7 @@ class MautrFxEmbedBot(Plugin):
             return f"<p><b><sub>MautrFxEmbed</sub></b>{date_html}</p>"
         return f"> **MautrFxEmbed**{date_md}"
 
-    async def _get_matrix_image_url(self, image: Photo, size: int) -> tuple[str, int, int] | None:
+    async def _get_matrix_image_url(self, image: Photo, size: int) -> tuple[str, int, int]:
         """
         Download image from external URL and upload it to Matrix
         :param url: external URL
@@ -1036,7 +1050,7 @@ class MautrFxEmbedBot(Plugin):
             # Download image from external source
             data = await self._download_image(image.url)
             if not data:
-                return None
+                return "", 0, 0
 
             # Generate thumbnail
             image_data, width, height = await asyncio.get_event_loop().run_in_executor(
@@ -1045,7 +1059,7 @@ class MautrFxEmbedBot(Plugin):
                 (data, size, size)
             )
             if not image_data:
-                return None
+                return "", 0, 0
 
             # Upload image to Matrix server
             mxc_uri = await self.client.upload_media(
@@ -1056,8 +1070,10 @@ class MautrFxEmbedBot(Plugin):
             return mxc_uri, width, height
         except ClientError as e:
             self.log.error(f"Downloading image - connection failed: {e}")
+            return "", 0, 0
         except (ValueError, MatrixResponseError) as e:
             self.log.error(f"Uploading image to Matrix server: {e}")
+            return "", 0, 0
 
     def _get_thumbnail(self, image: tuple[bytes, int, int]) -> tuple[bytes, int, int]:
         """
