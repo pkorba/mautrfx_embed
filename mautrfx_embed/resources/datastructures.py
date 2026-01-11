@@ -67,3 +67,5 @@ class Post:
     poll: Poll
     link: Link
     quote: Self
+    translation: str
+    translation_lang: str
