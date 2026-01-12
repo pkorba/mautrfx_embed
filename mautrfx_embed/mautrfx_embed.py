@@ -337,9 +337,9 @@ class MautrFxEmbedBot(Plugin):
         millions = divmod(value, 1000000)
         thousands = divmod(millions[1], 1000)
         if millions[0]:
-            formatted_value = f"{millions[0]}.{round(millions[1], -4)//10000}M"
+            formatted_value = f"{millions[0]}.{millions[1] // 10000}M"
         elif thousands[0]:
-            formatted_value = f"{thousands[0]}.{round(thousands[1], -2)//100}K"
+            formatted_value = f"{thousands[0]}.{thousands[1] // 100}K"
         else:
             formatted_value = f"{thousands[1]}"
         return formatted_value
