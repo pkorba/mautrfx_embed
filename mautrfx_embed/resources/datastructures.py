@@ -3,18 +3,12 @@ from typing import Self
 
 
 @dataclass
-class Photo:
-    width: int
-    height: int
-    url: str
-
-
-@dataclass
-class Video:
+class Media:
     width: int
     height: int
     url: str
     thumbnail_url: str
+    filetype: str
 
 
 @dataclass
@@ -61,8 +55,8 @@ class Post:
     author_screen_name: str
     author_url: str
     post_date: int
-    photos: list[Photo]
-    videos: list[Video]
+    photos: list[Media]
+    videos: list[Media]
     facets: list[Facet]
     poll: Poll
     link: Link

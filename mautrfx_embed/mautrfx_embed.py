@@ -15,7 +15,7 @@ from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 
 from .resources.assets import play
-from .resources.datastructures import Post, Photo, Video, Facet, Link, Poll, Choice
+from .resources.datastructures import Post, Media, Facet, Link, Poll, Choice
 
 
 class Config(BaseProxyConfig):
@@ -253,23 +253,29 @@ class MautrFxEmbedBot(Plugin):
     async def _masto_parse_media(self, data: Any) -> tuple[list, list]:
         # Multimedia
         media = data.get("media_attachments")
-        photos: list[Photo] = []
-        videos: list[Video] = []
+        photos: list[Media] = []
+        videos: list[Media] = []
         if media is not None:
             for elem in media:
                 if elem["type"] in ["video", "gifv", "audio"]:
-                    video = Video(
-                        width=elem["meta"]["small"]["width"],
-                        height=elem["meta"]["small"]["height"],
+                    metadata = elem["meta"].get("small")
+                    if metadata is None:
+                        metadata = elem["meta"].get("original")
+                    video = Media(
+                        width=metadata.get("width", 0) if metadata is not None else 0,
+                        height=metadata.get("height", 0) if metadata is not None else 0,
                         url=elem["url"],
                         thumbnail_url=elem["preview_url"],
+                        filetype="a" if elem["type"] == "audio" else "v"
                     )
                     videos.append(video)
                 elif elem["type"] == "image":
-                    photo = Photo(
+                    photo = Media(
                         width=elem["meta"]["original"]["width"],
                         height=elem["meta"]["original"]["height"],
                         url=elem["url"],
+                        thumbnail_url=elem["preview_url"],
+                        filetype="p"
                     )
                     photos.append(photo)
         return videos, photos
@@ -358,8 +364,8 @@ class MautrFxEmbedBot(Plugin):
 
         # Multimedia and quotes
         media = preview_raw.get("embed")
-        photos: list[Photo] = []
-        videos: list[Video] = []
+        photos: list[Media] = []
+        videos: list[Media] = []
         link: Link = None
         quote: Post = None
         if media is not None:
@@ -392,28 +398,31 @@ class MautrFxEmbedBot(Plugin):
             qtype="bsky"
         )
 
-    async def _bsky_parse_images(self, media: Any) -> list[Photo]:
-        photos: list[Photo] = []
+    async def _bsky_parse_images(self, media: Any) -> list[Media]:
+        photos: list[Media] = []
         if "app.bsky.embed.images" in media["$type"]:
             for elem in media["images"]:
-                photo = Photo(
+                photo = Media(
                     width=elem["aspectRatio"]["width"],
                     height=elem["aspectRatio"]["height"],
                     url=elem["fullsize"],
+                    thumbnail_url=elem["thumb"],
+                    filetype="p"
                 )
                 photos.append(photo)
         if "app.bsky.embed.recordWithMedia" in media["$type"]:
             photos += await self._bsky_parse_images(media["media"])
         return photos
 
-    async def _bsky_parse_videos(self, media: Any) -> list[Video]:
-        videos: list[Video] = []
+    async def _bsky_parse_videos(self, media: Any) -> list[Media]:
+        videos: list[Media] = []
         if "app.bsky.embed.video" in media["$type"]:
-            video = Video(
+            video = Media(
                 width=media["aspectRatio"]["width"],
                 height=media["aspectRatio"]["height"],
                 url=self.config["bsky_player"] + media["playlist"],
                 thumbnail_url=media["thumbnail"],
+                filetype="v"
             )
             videos.append(video)
         if "app.bsky.embed.recordWithMedia" in media["$type"]:
@@ -424,8 +433,8 @@ class MautrFxEmbedBot(Plugin):
         if "app.bsky.embed.record" in media["$type"]:
             if "app.bsky.embed.recordWithMedia" in media["$type"]:
                 media = media["record"]
-            photos: list[Photo] = []
-            videos: list[Video] = []
+            photos: list[Media] = []
+            videos: list[Media] = []
             link: Link = None
             media_rec = media["record"].get("embeds")
             if media_rec is not None:
@@ -587,23 +596,26 @@ class MautrFxEmbedBot(Plugin):
     async def _tw_parse_media(self, data: Any) -> tuple[list, list]:
         # Multimedia
         media = data.get("media")
-        photos: list[Photo] = []
-        videos: list[Video] = []
+        photos: list[Media] = []
+        videos: list[Media] = []
         if media is not None:
             for elem in media["all"]:
                 if elem["type"] in ["video", "gif"]:
-                    video = Video(
+                    video = Media(
                         width=elem["width"],
                         height=elem["height"],
                         url=elem["url"],
                         thumbnail_url=elem["thumbnail_url"],
+                        filetype="v"
                     )
                     videos.append(video)
                 elif elem["type"] == "photo":
-                    photo = Photo(
+                    photo = Media(
                         width=elem["width"],
                         height=elem["height"],
                         url=elem["url"],
+                        thumbnail_url=None,
+                        filetype="p"
                     )
                     photos.append(photo)
         return videos, photos
@@ -900,13 +912,17 @@ class MautrFxEmbedBot(Plugin):
             return ""
         thumbs_data = []
         for i, vid in enumerate(data.videos):
-            image = Photo(
+            if not vid.thumbnail_url:
+                continue
+            image = Media(
                 url=vid.thumbnail_url,
                 width=vid.width,
-                height=vid.height
+                height=vid.height,
+                thumbnail_url=vid.thumbnail_url,
+                filetype=vid.filetype,
             )
-            full_url = vid.url
-            thumbs_data.append((image, full_url, f"Vid#{i + 1}", True))
+            name = f"Vid#{i + 1}" if vid.filetype == "v" else f"Audio#{i + 1}"
+            thumbs_data.append((image, vid.url, name, True))
 
         for i, pic in enumerate(data.photos):
             thumbs_data.append((pic, pic.url, f"Pic#{i + 1}", False))
@@ -952,17 +968,16 @@ class MautrFxEmbedBot(Plugin):
 
     async def _get_media_list(self, media: list, is_html: bool = True) -> str:
         if len(media) > 0:
-            if isinstance(media[0], Video):
-                title = "Videos"
-                short = "Vid"
-            else:
-                title = "Photos"
-                short = "Pic"
-            i = 1
             media_formatted = []
-            for med in media:
-                media_formatted.append(await self._get_link(med.url, f"{short}#{i}", is_html))
-                i += 1
+            title = "Photos" if media[0].filetype == "p" else "Audio/Videos"
+            for i, med in enumerate(media):
+                if med.filetype == "v":
+                    short = "Vid"
+                elif med.filetype == "a":
+                    short = "Audio"
+                else:
+                    short = "Pic"
+                media_formatted.append(await self._get_link(med.url, f"{short}#{i + 1}", is_html))
             if is_html:
                 return f"<p><b>{title}: </b>{', '.join(media_formatted)}</p>"
             return f"> **{title}:** {', '.join(media_formatted)}  \n>  \n"
@@ -1076,7 +1091,7 @@ class MautrFxEmbedBot(Plugin):
 
     async def _get_matrix_image_url(
             self,
-            image: Photo,
+            image: Media,
             size: int,
             is_video: bool = False
     ) -> tuple[str, int, int]:
