@@ -6,8 +6,7 @@ from time import strftime, localtime, strptime, mktime
 from typing import Any, Type
 
 import html2text
-from PIL import Image
-from PIL import UnidentifiedImageError
+from PIL import Image, ImageFile, UnidentifiedImageError
 from aiohttp import ClientError, ClientTimeout
 from mautrix.errors import MatrixResponseError
 from mautrix.types import TextMessageEventContent, MessageType, Format
@@ -15,6 +14,7 @@ from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 
+from .resources.assets import play
 from .resources.datastructures import Post, Photo, Video, Facet, Link, Poll, Choice
 
 
@@ -167,7 +167,7 @@ class MautrFxEmbedBot(Plugin):
         if error is not None:
             raise ValueError("Bad response")
 
-        content, md_text = await asyncio.get_event_loop().run_in_executor(
+        content, md_text = await self.loop.run_in_executor(
             None,
             self._parse_text,
             preview_raw["content"]
@@ -201,7 +201,7 @@ class MautrFxEmbedBot(Plugin):
         quote = data.get("quote")
         if not quote:
             return None
-        quote_text, md_quote_text = await asyncio.get_event_loop().run_in_executor(
+        quote_text, md_quote_text = await self.loop.run_in_executor(
             None,
             self._parse_text,
             quote["quoted_status"]["content"]
@@ -906,16 +906,17 @@ class MautrFxEmbedBot(Plugin):
                 height=vid.height
             )
             full_url = vid.url
-            thumbs_data.append((image, full_url, f"Vid#{i + 1}"))
+            thumbs_data.append((image, full_url, f"Vid#{i + 1}", True))
 
         for i, pic in enumerate(data.photos):
-            thumbs_data.append((pic, pic.url, f"Pic#{i + 1}"))
+            thumbs_data.append((pic, pic.url, f"Pic#{i + 1}", False))
 
         thumbs = []
         for thumb in thumbs_data:
             image_mxc, width, height = await self._get_matrix_image_url(
                 thumb[0],
-                300 if (len(data.videos) + len(data.photos) == 1) else 100
+                300 if (len(data.videos) + len(data.photos) == 1) else 100,
+                thumb[3]
             )
             await asyncio.sleep(0.2)
             if image_mxc:
@@ -1073,7 +1074,12 @@ class MautrFxEmbedBot(Plugin):
             return f"<p><b><sub>MautrFxEmbed</sub></b>{date_html}</p>"
         return f"> **MautrFxEmbed**{date_md}"
 
-    async def _get_matrix_image_url(self, image: Photo, size: int) -> tuple[str, int, int]:
+    async def _get_matrix_image_url(
+            self,
+            image: Photo,
+            size: int,
+            is_video: bool = False
+    ) -> tuple[str, int, int]:
         """
         Download image from external URL and upload it to Matrix
         :param url: external URL
@@ -1086,10 +1092,10 @@ class MautrFxEmbedBot(Plugin):
                 return "", 0, 0
 
             # Generate thumbnail
-            image_data, width, height = await asyncio.get_event_loop().run_in_executor(
+            image_data, width, height = await self.loop.run_in_executor(
                 None,
                 self._get_thumbnail,
-                (data, size, size)
+                (data, size, size, is_video)
             )
             if not image_data:
                 return "", 0, 0
@@ -1108,7 +1114,7 @@ class MautrFxEmbedBot(Plugin):
             self.log.error(f"Uploading image to Matrix server: {e}")
             return "", 0, 0
 
-    def _get_thumbnail(self, image: tuple[bytes, int, int]) -> tuple[bytes, int, int]:
+    def _get_thumbnail(self, image: tuple[bytes, int, int, bool]) -> tuple[bytes, int, int]:
         """
         Convert original thumbnail into 100x100 one
         :param image: image data as bytes
@@ -1117,6 +1123,9 @@ class MautrFxEmbedBot(Plugin):
         try:
             img = Image.open(io.BytesIO(image[0]))
             img.thumbnail((image[1], image[2]), Image.Resampling.LANCZOS)
+            if image[3]:
+                self._add_playbutton_overlay(img)
+
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             img_byte_arr = io.BytesIO()
@@ -1127,6 +1136,21 @@ class MautrFxEmbedBot(Plugin):
             self.log.error(f"Error generating thumbnail: {e}")
             return (b'', 0, 0)
         return image, img.width, img.height
+
+    def _add_playbutton_overlay(self, img: ImageFile) -> None:
+        if not img:
+            return None
+        img_w, img_h = img.size
+        try:
+            play_img = Image.open(io.BytesIO(play))
+            overlay_s = min(img_w, img_h) // 2
+            if overlay_s < play_img.width:
+                play_img = play_img.resize((overlay_s, overlay_s), Image.Resampling.LANCZOS)
+            offset = ((img_w - play_img.width) // 2, (img_h - play_img.width) // 2)
+            img.paste(play_img, offset, play_img)
+        except (OSError, ValueError, TypeError, FileNotFoundError, UnidentifiedImageError) as e:
+            self.log.error(f"Error adding play button overlay to the thumbnail: {e}")
+            raise
 
     async def _get_preview(self, url: str) -> Any:
         """
