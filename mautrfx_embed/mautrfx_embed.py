@@ -868,12 +868,12 @@ class MautrFxEmbedBot(Plugin):
 
         if is_html:
             return (
-                f"<blockquote><b>Translated from {data.translation_lang}</b><br>"
+                f"<blockquote>📝 <b>Translated from {data.translation_lang}</b><br>"
                 f"{data.translation.replace('\n', '<br>')}"
                 f"</blockquote>"
             )
         return (
-            f"> > **Translated from {data.translation_lang}**  \n"
+            f"> > 📝 **Translated from {data.translation_lang}**  \n"
             f"> > {data.translation.replace('\n', '  \n> > ')}  \n>  \n")
 
     async def _get_poll(self, data: Post, is_html: bool = True) -> str:
@@ -1041,7 +1041,7 @@ class MautrFxEmbedBot(Plugin):
         if text:
             if is_html:
                 return f"<p><b>{' '.join(text)}</b></p>"
-            return f"> {' '.join(text)}  \n>  \n"
+            return f"> **{' '.join(text)}**  \n>  \n"
         return ""
 
     async def _get_external_link(self, data: Link, is_html: bool = True) -> str:
@@ -1084,7 +1084,7 @@ class MautrFxEmbedBot(Plugin):
         if post_date:
             date = strftime('%Y-%m-%d %H:%M', localtime(post_date))
             date_html = f"<b><sub> • {date}</sub></b>"
-            date_md = f"** • {date}**"
+            date_md = f" **• {date}**"
         if is_html:
             return f"<p><b><sub>MautrFxEmbed</sub></b>{date_html}</p>"
         return f"> **MautrFxEmbed**{date_md}"
