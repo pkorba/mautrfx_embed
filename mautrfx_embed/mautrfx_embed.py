@@ -552,7 +552,7 @@ class MautrFxEmbedBot(Plugin):
             link=None,
             quote=await self._tw_parse_quote(preview_raw),
             translation=translation["text"] if translation is not None else None,
-            translation_lang=translation["source_lang_en"] if translation is not None else None,
+            translation_lang=translation.get("source_lang_en") if translation is not None else None,
             qtype="twitter"
         )
         return post
@@ -866,14 +866,15 @@ class MautrFxEmbedBot(Plugin):
         if not data.translation:
             return ""
 
+        src_lang = f"from {data.translation_lang}" if data.translation_lang is not None else "text"
         if is_html:
             return (
-                f"<blockquote>📝 <b>Translated from {data.translation_lang}</b><br>"
+                f"<blockquote>📝 <b>Translated {src_lang}</b><br>"
                 f"{data.translation.replace('\n', '<br>')}"
                 f"</blockquote>"
             )
         return (
-            f"> > 📝 **Translated from {data.translation_lang}**  \n"
+            f"> > 📝 **Translated {src_lang}**  \n"
             f"> > {data.translation.replace('\n', '  \n> > ')}  \n>  \n")
 
     async def _get_poll(self, data: Post, is_html: bool = True) -> str:
@@ -969,15 +970,27 @@ class MautrFxEmbedBot(Plugin):
     async def _get_media_list(self, media: list, is_html: bool = True) -> str:
         if len(media) > 0:
             media_formatted = []
-            title = "Photos" if media[0].filetype == "p" else "Audio/Videos"
+            is_audio = False
+            is_video = False
             for i, med in enumerate(media):
                 if med.filetype == "v":
                     short = "Vid"
+                    is_video = True
                 elif med.filetype == "a":
                     short = "Audio"
+                    is_audio = True
                 else:
                     short = "Pic"
                 media_formatted.append(await self._get_link(med.url, f"{short}#{i + 1}", is_html))
+
+            if is_audio and is_video:
+                title = "Audio/Videos"
+            elif is_audio:
+                title = "Audio"
+            elif is_video:
+                title = "Videos"
+            else:
+                title = "Photos"
             if is_html:
                 return f"<p><b>{title}: </b>{', '.join(media_formatted)}</p>"
             return f"> **{title}:** {', '.join(media_formatted)}  \n>  \n"
@@ -1154,7 +1167,7 @@ class MautrFxEmbedBot(Plugin):
 
     def _add_playbutton_overlay(self, img: ImageFile) -> None:
         if not img:
-            return None
+            return
         img_w, img_h = img.size
         try:
             play_img = Image.open(io.BytesIO(play))
