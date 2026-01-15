@@ -130,6 +130,9 @@ class Blog:
                     await self._get_image(image_mxc, thumb[2], (width, height), is_html),
                     is_html
                 )}")
+        # This can happen if the list contains only audio files without thumbnails
+        if not thumbs:
+            return ""
         if is_html:
             return f"<p>{" ".join(thumbs)}</p>"
         return f"> {" ".join(thumbs)}  \n>  \n"
