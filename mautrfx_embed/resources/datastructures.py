@@ -64,3 +64,41 @@ class Post:
     translation: str
     translation_lang: str
     qtype: str
+
+
+twitter_domains = [
+    "x.com",
+    "twitter.com",
+    "fixupx.com",
+    "fxtwitter.com",
+    "fixvx.com",
+    "vxtwitter.com",
+    "fixvtwitter.com"
+    "stupidpenisx.com",
+    "girlcockx.com",
+    "nitter.net",
+    "xcancel.com",
+    "nitter.poast.org",
+    "nitter.privacyredirect.com",
+    "lightbrd.com",
+    "nitter.space",
+    "nitter.tierkoetter.com",
+    "nuku.trabun.org",
+    "nitter.catsarch.com"
+]
+
+bsky_domains = [
+    "bsky.app/profile",
+    "fxbsky.app/profile",
+    "skyview.social/?url=https://bsky.app/profile/",
+    "skyview.social/?url=bsky.app/profile/"
+]
+
+instagram_domains = [
+    "www.instagram.com/reel",
+    "instagram.com/reel",
+    "www.kkinstagram.com/reel",
+    "kkinstagram.com/reel",
+    "www.uuinstagram.com/reel",
+    "uuinstagram.com/reel"
+]
