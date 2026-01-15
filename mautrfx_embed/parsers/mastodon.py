@@ -99,6 +99,9 @@ class Mastodon:
         content = re.sub(r"<span\sclass=\"invisible\">[^<>]*?</span>", "", content)
         # Replace ellipsis span with an actual ellipsis
         content = re.sub(r"<span\sclass=\"ellipsis\">([^<>]*?)</span>", r"\1...", content)
+        # Remove the outmost paragraph to prevent too much whitespace in some clients
+        content = content.removeprefix("<p>")
+        content = content.removesuffix("</p>")
 
         # Markdown
         text_maker = html2text.HTML2Text()
