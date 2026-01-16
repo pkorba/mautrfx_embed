@@ -64,13 +64,16 @@ class Post:
     translation: str
     translation_lang: str
     qtype: str
+    name: str
 
 
 twitter_domains = [
     "x.com",
     "twitter.com",
     "fixupx.com",
+    "xfixup.com",
     "fxtwitter.com",
+    "twittpr.com",
     "fixvx.com",
     "vxtwitter.com",
     "fixvtwitter.com"

@@ -253,16 +253,16 @@ class Blog:
             f"> > {note.replace('\n', '  \n> > ')}  \n>  \n"
         )
 
-    async def get_footer(self, post_date: int, is_html: bool = True) -> str:
+    async def get_footer(self, name:str, post_date: int, is_html: bool = True) -> str:
         date_html = ""
         date_md = ""
         if post_date:
             date = strftime('%Y-%m-%d %H:%M', localtime(post_date))
-            date_html = f"<b><sub> • {date}</sub></b>"
+            date_html = f"<b> • {date}</b>"
             date_md = f" **• {date}**"
         if is_html:
-            return f"<p><b><sub>MautrFxEmbed</sub></b>{date_html}</p>"
-        return f"> **MautrFxEmbed**{date_md}"
+            return f"<p><b>{name}</b>{date_html}</p>"
+        return f"> **{name}**{date_md}"
 
     async def tw_replace_urls(self, data: Post) -> None:
         """

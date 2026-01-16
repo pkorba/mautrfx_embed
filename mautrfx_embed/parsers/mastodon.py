@@ -51,7 +51,8 @@ class Mastodon:
             quote=await self.parse_quote(preview_raw),
             translation=None,
             translation_lang=None,
-            qtype="twitter"
+            qtype="mastodon",
+            name=f"🐘 {re.sub(r"https://(www\.)?(.*?)/.*", r"\2", preview_raw["url"])}"
         )
 
     async def parse_quote(self, data: Any) -> Post | None:
@@ -85,7 +86,10 @@ class Mastodon:
                 quote=None,
                 translation=None,
                 translation_lang=None,
-                qtype="mastodon"
+                qtype="mastodon",
+                name=f"🐘 {re.sub(
+                    r"https://(www\.)?(.*?)/.*", r"\2", quote["quoted_status"]["url"]
+                )}"
             )
 
     def _parse_text(self, text: str) -> tuple[str, str]:

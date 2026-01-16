@@ -56,7 +56,8 @@ class Bsky:
             quote=quote,
             translation=None,
             translation_lang=None,
-            qtype="bsky"
+            qtype="bsky",
+            name="🦋 Bluesky"
         )
 
     async def _parse_images(self, media: Any) -> list[Media]:
@@ -128,7 +129,8 @@ class Bsky:
                 quote=None,
                 translation=None,
                 translation_lang=None,
-                qtype="bsky"
+                qtype="bsky",
+                name="🦋 Bluesky"
             )
         return None
 

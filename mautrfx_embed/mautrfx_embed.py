@@ -188,8 +188,8 @@ class MautrFxEmbedBot(Plugin):
         body += await self.blog.get_community_note(preview.community_note, False)
 
         # Footer, date
-        html += await self.blog.get_footer(preview.post_date)
-        body += await self.blog.get_footer(preview.post_date, False)
+        html += await self.blog.get_footer(preview.name, preview.post_date)
+        body += await self.blog.get_footer(preview.name, preview.post_date, False)
 
         html = f"<blockquote>{html}</blockquote>"
 
@@ -222,7 +222,8 @@ class MautrFxEmbedBot(Plugin):
             quote=None,
             translation=None,
             translation_lang=None,
-            qtype="instagram"
+            qtype="instagram",
+            name="🖼️ Instagram"
         )
 
     @classmethod
