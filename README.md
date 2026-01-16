@@ -29,6 +29,7 @@ You can configure the plugin in maubot's control panel.
 - Reddit support
 - Lemmy support
 - Piefed support
+- configurable size of thumbnails
 
 ## FAQ  
 **Q:** Why BlueSky videos open in a website with some suspicious looking URL?  
