@@ -7,6 +7,15 @@ A maubot plugin that passively scans your chats for links to X/Twitter, BlueSky,
 - thumbnails function as links to the original media
 - plugin supports the translation syntax from FxEmbed but only for X/Twitter posts
 
+## Screenshots
+<img width="20%" height="20%" alt="twitter_video" src="https://github.com/user-attachments/assets/bc714d3d-85ab-4f79-9ace-9c863b68b4ca" />
+<img width="20%" height="20%" alt="twitter" src="https://github.com/user-attachments/assets/23f70929-6343-45c5-bc2a-fe35959fc76e" />
+<img width="20%" height="20%" alt="mastodon" src="https://github.com/user-attachments/assets/644140b2-e432-4796-a3d9-8d783372a924" />
+<img width="20%" height="20%" alt="instagram" src="https://github.com/user-attachments/assets/ba9df8cc-8dfb-4ea5-b8a9-4d0b3256e72e" />
+<img width="20%" height="20%" alt="bsky" src="https://github.com/user-attachments/assets/214d307a-0e5f-4da6-a1e9-8c58745a08b6" />
+<img width="20%" height="20%" alt="twitter_translate" src="https://github.com/user-attachments/assets/9f7dcf9b-94e4-41fd-a1e3-090a59b93306" />
+
+
 ## Usage  
 Just paste a link in the chat. The bot will scan the message and if it matches the criteria, it will provide an embed.  
 
