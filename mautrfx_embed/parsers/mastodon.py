@@ -18,7 +18,7 @@ class Mastodon:
         """
         Parse JSON data from Mastodon API
         :param preview_raw: JSON data
-        :return: Preview object
+        :return: Post object
         """
         error = preview_raw.get("error")
         if error is not None:
@@ -56,6 +56,11 @@ class Mastodon:
         )
 
     async def parse_quote(self, data: Any) -> Post | None:
+        """
+        Parse JSON data of a quote post from Mastodon API
+        :param data: JSON data of a quote post
+        :return: Post object
+        """
         quote = data.get("quote")
         if not quote:
             return None
@@ -93,6 +98,11 @@ class Mastodon:
             )
 
     def _parse_text(self, text: str) -> tuple[str, str]:
+        """
+        Remove needless HTML tags from the content of Mastodon post
+        :param text: text content of a post
+        :return: tuple of cleaned HTML text and Markdown version of the same text
+        """
         if not text:
             return "", ""
 
@@ -115,7 +125,11 @@ class Mastodon:
         return content, md_text
 
     async def _parse_media(self, data: Any) -> tuple[list, list]:
-        # Multimedia
+        """
+        Extract media attachments from JSON
+        :param data: post's JSON from Mastodon API
+        :return: tuple with two lists containing Media objects for videos and photos
+        """
         media = data.get("media_attachments")
         photos: list[Media] = []
         videos: list[Media] = []
@@ -145,7 +159,11 @@ class Mastodon:
         return videos, photos
 
     async def _parse_link(self, data: Any) -> Link | None:
-        # Link
+        """
+        Extract link data from JSON
+        :param data: post's JSON from Mastodon API
+        :return: Link object
+        """
         card = data.get("card")
         if card is not None:
             return Link(
@@ -156,7 +174,11 @@ class Mastodon:
         return None
 
     async def _parse_poll(self, data: Any) -> Poll:
-        # Poll
+        """
+        Extract poll data from JSON
+        :param data: post's JSON from Mastodon API
+        :return: Poll object
+        """
         poll = None
         poll_raw = data.get("poll")
         if poll_raw is not None:
@@ -182,6 +204,11 @@ class Mastodon:
         return poll
 
     async def _get_poll_status(self, expires_at: int) -> str:
+        """
+        Calculate time difference between current time and poll's expiration time
+        :param expires_at: seconds since Epoch marking the end time when poll closes
+        :return: human friendly string indicating how much time is left until the poll closes
+        """
         time_diff = expires_at - int(time.time())
         d = divmod(time_diff, 86400)  # days
         h = divmod(d[1], 3600)  # hours

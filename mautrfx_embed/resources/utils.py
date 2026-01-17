@@ -29,6 +29,11 @@ class Utilities:
         self.headers = headers
 
     async def parse_interaction(self, value: int) -> str:
+        """
+        Get shortened representation of a number of interactions
+        :param value: number of interactions
+        :return: shortened number
+        """
         millions = divmod(value, 1000000)
         thousands = divmod(millions[1], 1000)
         if millions[0]:
@@ -40,7 +45,11 @@ class Utilities:
         return formatted_value
 
     async def parse_date(self, created: str) -> int:
-        # Time
+        """
+        Convert date string to seconds since Epoch
+        :param created: date string
+        :return: seconds since Epoch
+        """
         if created:
             return int(mktime(strptime(created, "%Y-%m-%dT%H:%M:%S.%f%z")))
         return 0
@@ -48,9 +57,8 @@ class Utilities:
     async def download_image(self, url: str) -> bytes | None:
         """
         Download image from external URL
-        :param headers:
-        :param url: external URL
-        :return: image data as bytes
+        :param url: URL to an image
+        :return: image data as bytes or None if download fails for any reason
         """
         timeout = ClientTimeout(total=20)
         try:
@@ -67,7 +75,6 @@ class Utilities:
     async def get_preview(self, url: str) -> Any:
         """
         Get results from the API.
-        :param headers:
         :param url: source URL
         :return: JSON API response
         """
@@ -87,15 +94,17 @@ class Utilities:
     def _get_thumbnail(self, image: tuple[bytes, int, int, bool]) -> tuple[bytes, int, int]:
         """
         Convert original thumbnail into 100x100 one
-        :param image: image data as bytes
-        :return: new image data as bytes
+        :param image: tuple that contains image as bytes, width, height, and bool that indicates
+        whether passed image is a thumbnail to video or just a normal photo
+        :return: a tuple with thumbnail as bytes, its width and height
         """
         try:
             img = Image.open(io.BytesIO(image[0]))
             img.thumbnail((image[1], image[2]), Image.Resampling.LANCZOS)
+            # If it's a thumbnail to a video file, add play button overlay
             if image[3]:
                 self._add_playbutton_overlay(img)
-
+            # The result is a JPEG so we have to remove the transparency layer if there is one
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             img_byte_arr = io.BytesIO()
@@ -108,11 +117,18 @@ class Utilities:
         return image, img.width, img.height
 
     def _add_playbutton_overlay(self, img: ImageFile) -> None:
+        """
+        Adds a play button overlay to thumbnails of video files
+        :param img: the image to add overlay to
+        :return: image with a play button overlay
+        """
         if not img:
             return
         img_w, img_h = img.size
         try:
             play_img = Image.open(io.BytesIO(play))
+            # The default size of play button is 120x120
+            # If play button is bigger than thumbnail's half size, resize the button
             overlay_s = min(img_w, img_h) // 2
             if overlay_s < play_img.width:
                 play_img = play_img.resize((overlay_s, overlay_s), Image.Resampling.LANCZOS)
@@ -129,9 +145,11 @@ class Utilities:
             is_video: bool = False
     ) -> tuple[str, int, int]:
         """
-        Download image from external URL and upload it to Matrix
-        :param url: external URL
-        :return: matrix mxc URL
+        Download image from external URL and upload its thumbnail to Matrix
+        :param image: Media object with data about an image
+        :param size: max size of a generated thumbnail
+        :param is_video: video file thumbnails get play button overlay added to them
+        :return: a tuple with matrix mxc URL, width, and height of the thumbnail
         """
         try:
             # Download image from external source
@@ -180,7 +198,7 @@ class Utilities:
                 timeout=timeout,
                 raise_for_status=True,
                 allow_redirects=False)
-            # Contains direct URL to the video
+            # This header contains direct URL to the video
             return response.headers["location"]
         except ClientError as e:
             self.log.error(f"Connection failed: {e}")

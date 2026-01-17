@@ -12,7 +12,7 @@ class Twitter:
         """
         Parse JSON data from FxTwitter API
         :param preview_raw: JSON data
-        :return: Preview object
+        :return: Post object
         """
         if not preview_raw["code"] == 200:
             raise ValueError("Bad response")
@@ -20,8 +20,7 @@ class Twitter:
         preview_raw = preview_raw["tweet"]
         videos, photos = await self._parse_media(preview_raw)
         translation = preview_raw.get("translation")
-        post = Post(
-            # Remove non-functional links added at the end of some tweets with media attached
+        return Post(
             text=preview_raw["raw_text"]["text"],
             url=None,
             markdown=None,
@@ -45,9 +44,13 @@ class Twitter:
             qtype="twitter",
             name="✖️ X (Twitter)"
         )
-        return post
 
     async def parse_quote(self, data: Any) -> Post | None:
+        """
+        Parse JSON quote data from FxTwitter API
+        :param data: JSON data of a quote
+        :return: Post object
+        """
         quote = data.get("quote")
         if not quote:
             return None
@@ -78,14 +81,22 @@ class Twitter:
             )
 
     async def _parse_community_note(self, data: Any) -> str:
-        # Community Note
+        """
+        Extract community note from JSON
+        :param data: post's JSON data
+        :return: community note text
+        """
         community_note = data.get("community_note")
         if community_note is not None:
             return community_note["text"]
         return ""
 
     async def _parse_media(self, data: Any) -> tuple[list, list]:
-        # Multimedia
+        """
+        Extract media attachments from JSON data
+        :param data: post's JSON data
+        :return: tuple containing lists of Media object with videos and photos
+        """
         media = data.get("media")
         photos: list[Media] = []
         videos: list[Media] = []
@@ -112,7 +123,11 @@ class Twitter:
         return videos, photos
 
     async def _parse_poll(self, data: Any) -> Poll:
-        # Poll
+        """
+        Extract poll data from JSON
+        :param data: post's JSON data
+        :return: Poll object
+        """
         poll = None
         poll_raw = data.get("poll")
         if poll_raw is not None:
@@ -133,7 +148,11 @@ class Twitter:
         return poll
 
     async def _parse_facets(self, data: Any) -> list[Facet]:
-        # List of elements to substitute for in the raw text message
+        """
+        Extract facets from JSON data
+        :param data: post's JSON data
+        :return: list of Facets
+        """
         facets: list[Facet] = []
         facets_raw = data["raw_text"].get("facets")
         if facets_raw is not None:

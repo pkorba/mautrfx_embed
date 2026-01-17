@@ -15,7 +15,7 @@ class Bsky:
         """
         Parse JSON data from Bsky API
         :param preview_raw: JSON data
-        :return: Preview object
+        :return: Post object
         """
         error = preview_raw.get("error")
         if error is not None:
@@ -61,6 +61,11 @@ class Bsky:
         )
 
     async def _parse_images(self, media: Any) -> list[Media]:
+        """
+        Extract data about image attachments into Media objects
+        :param media: JSON with data about image attachments
+        :return: list of images
+        """
         photos: list[Media] = []
         if "app.bsky.embed.images" in media["$type"]:
             for elem in media["images"]:
@@ -72,11 +77,17 @@ class Bsky:
                     filetype="p"
                 )
                 photos.append(photo)
+        # Posts with quotes have different structure
         if "app.bsky.embed.recordWithMedia" in media["$type"]:
             photos += await self._parse_images(media["media"])
         return photos
 
     async def _parse_videos(self, media: Any) -> list[Media]:
+        """
+        Extract data about video attachments into Media objects
+        :param media: JSON with data about video attachments
+        :return: list of videos
+        """
         videos: list[Media] = []
         if "app.bsky.embed.video" in media["$type"]:
             video = Media(
@@ -87,11 +98,17 @@ class Bsky:
                 filetype="v"
             )
             videos.append(video)
+        # Posts with quotes have different structure
         if "app.bsky.embed.recordWithMedia" in media["$type"]:
             videos += await self._parse_videos(media["media"])
         return videos
 
     async def parse_quote(self, media: Any) -> Post | None:
+        """
+        Parse JSON data about quote post from Bsky API
+        :param media: JSON data
+        :return: Post object
+        """
         if "app.bsky.embed.record" in media["$type"]:
             if "app.bsky.embed.recordWithMedia" in media["$type"]:
                 media = media["record"]
@@ -135,6 +152,11 @@ class Bsky:
         return None
 
     async def _parse_external(self, media: Any) -> Link | None:
+        """
+        Extract data about external links into Link object
+        :param media: external link JSON data
+        :return: Link object
+        """
         if "app.bsky.embed.external" in media["$type"]:
             return Link(
                 title=media["external"]["title"],
@@ -144,7 +166,11 @@ class Bsky:
         return None
 
     async def _parse_facets(self, data: Any) -> list[Facet]:
-        # List of elements to substitute for in the raw text message
+        """
+        Extract data about facets into a list of Facet objects
+        :param data: JSON facet data
+        :return: list of Facets
+        """
         facets: list[Facet] = []
         facets_raw = data.get("facets")
         if facets_raw is not None:

@@ -134,9 +134,9 @@ class MautrFxEmbedBot(Plugin):
 
     async def _prepare_message(self, preview: Post) -> TextMessageEventContent:
         """
-        Prepare Twitter preview message text
-        :param preview: Preview object with data from API
-        :return: body and HTML for preview message
+        Prepare preview message text for blog type of post
+        :param preview: Post object with data from API
+        :return: text message content
         """
         await self.blog.tw_replace_urls(preview)
 
@@ -201,6 +201,11 @@ class MautrFxEmbedBot(Plugin):
         )
 
     async def _parse_instagram_preview(self, preview_url: str) -> Post:
+        """
+        Build a Post object for Instagram reels
+        :param preview_url: URL to video
+        :return: Post object
+        """
         return Post(
             text=None,
             url=None,
