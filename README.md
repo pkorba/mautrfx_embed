@@ -32,6 +32,7 @@ You can configure the plugin in maubot's control panel.
 - Instagram - Plugin fetches the URL to the reel from kkinstagram.com
 
 ## Known issues  
+- **Currently spoilers are NOT SUPPORTED**
 - Missing support for custom emojis on Mastodon
 
 ## Planned features  
