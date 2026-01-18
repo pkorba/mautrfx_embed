@@ -165,11 +165,11 @@ class MautrFxEmbedBot(Plugin):
 
         # Multimedia list for clients that have problems displaying images/links
         # Videos
-        html += await self.blog.get_media_list(preview.videos)
-        body += await self.blog.get_media_list(preview.videos, False)
+        html += await self.blog.get_media_list(preview.videos, preview.sensitive)
+        body += await self.blog.get_media_list(preview.videos, preview.sensitive, False)
         # Photos
-        html += await self.blog.get_media_list(preview.photos)
-        body += await self.blog.get_media_list(preview.photos, False)
+        html += await self.blog.get_media_list(preview.photos, preview.sensitive)
+        body += await self.blog.get_media_list(preview.photos, preview.sensitive, False)
 
         # Quote
         html += await self.blog.get_quote(preview.quote)

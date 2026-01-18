@@ -3,7 +3,7 @@ from asyncio import AbstractEventLoop
 from time import strptime, mktime
 from typing import Any, Mapping
 
-from PIL import Image, ImageFile, UnidentifiedImageError
+from PIL import Image, ImageFile, ImageFilter, UnidentifiedImageError
 from aiohttp import ClientSession, ClientTimeout, ClientError
 from mautrix.errors import MatrixResponseError
 from mautrix.util.logging import TraceLogger
@@ -91,16 +91,20 @@ class Utilities:
             self.log.error(f"Connection failed: {e}")
             return ""
 
-    def _get_thumbnail(self, image: tuple[bytes, int, int, bool]) -> tuple[bytes, int, int]:
+    def _get_thumbnail(self, image: tuple[bytes, int, int, bool, bool]) -> tuple[bytes, int, int]:
         """
         Convert original thumbnail into 100x100 one
-        :param image: tuple that contains image as bytes, width, height, and bool that indicates
-        whether passed image is a thumbnail to video or just a normal photo
+        :param image: tuple that contains image as bytes, width, height, bool that indicates
+        whether passed image is a thumbnail to video or just a normal photo,
+        bool that indicates whether image should be blurred
         :return: a tuple with thumbnail as bytes, its width and height
         """
         try:
             img = Image.open(io.BytesIO(image[0]))
             img.thumbnail((image[1], image[2]), Image.Resampling.LANCZOS)
+            # Apply blur if it's a NSFW image
+            if image[4]:
+                img = img.filter(ImageFilter.BoxBlur(50))
             # If it's a thumbnail to a video file, add play button overlay
             if image[3]:
                 self._add_playbutton_overlay(img)
@@ -142,18 +146,21 @@ class Utilities:
             self,
             image: Media,
             size: int,
-            is_video: bool = False
+            is_video: bool = False,
+            nsfw: bool = False
     ) -> tuple[str, int, int]:
         """
         Download image from external URL and upload its thumbnail to Matrix
         :param image: Media object with data about an image
         :param size: max size of a generated thumbnail
         :param is_video: video file thumbnails get play button overlay added to them
+        :param nsfw: True if image needs blurring, False otherwise
         :return: a tuple with matrix mxc URL, width, and height of the thumbnail
         """
         try:
             # Download image from external source
-            data = await self.download_image(image.url)
+            url = image.thumbnail_url if image.thumbnail_url else image.url
+            data = await self.download_image(url)
             if not data:
                 return "", 0, 0
 
@@ -161,7 +168,7 @@ class Utilities:
             image_data, width, height = await self.loop.run_in_executor(
                 None,
                 self._get_thumbnail,
-                (data, size, size, is_video)
+                (data, size, size, is_video, nsfw)
             )
             if not image_data:
                 return "", 0, 0

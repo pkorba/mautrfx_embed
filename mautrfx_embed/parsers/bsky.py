@@ -57,7 +57,9 @@ class Bsky:
             translation=None,
             translation_lang=None,
             qtype="bsky",
-            name="🦋 Bluesky"
+            name="🦋 Bluesky",
+            sensitive=len(preview_raw["labels"]) > 0,
+            spoiler_text=None
         )
 
     async def _parse_images(self, media: Any) -> list[Media]:
@@ -69,9 +71,10 @@ class Bsky:
         photos: list[Media] = []
         if "app.bsky.embed.images" in media["$type"]:
             for elem in media["images"]:
+                aspect_ratio = elem.get("aspectRatio")
                 photo = Media(
-                    width=elem["aspectRatio"]["width"],
-                    height=elem["aspectRatio"]["height"],
+                    width=aspect_ratio["width"] if aspect_ratio is not None else 0,
+                    height=aspect_ratio["height"] if aspect_ratio is not None else 0,
                     url=elem["fullsize"],
                     thumbnail_url=elem["thumb"],
                     filetype="p"
@@ -90,9 +93,10 @@ class Bsky:
         """
         videos: list[Media] = []
         if "app.bsky.embed.video" in media["$type"]:
+            aspect_ratio = media.get("aspectRatio")
             video = Media(
-                width=media["aspectRatio"]["width"],
-                height=media["aspectRatio"]["height"],
+                width=aspect_ratio["width"] if aspect_ratio is not None else 0,
+                height=aspect_ratio["height"] if aspect_ratio is not None else 0,
                 url=self.player + media["playlist"],
                 thumbnail_url=media["thumbnail"],
                 filetype="v"
@@ -147,7 +151,9 @@ class Bsky:
                 translation=None,
                 translation_lang=None,
                 qtype="bsky",
-                name="🦋 Bluesky"
+                name="🦋 Bluesky",
+                sensitive=len(media["record"]["labels"]) > 0,
+                spoiler_text=None
             )
         return None
 

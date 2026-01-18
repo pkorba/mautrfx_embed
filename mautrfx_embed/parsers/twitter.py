@@ -42,7 +42,9 @@ class Twitter:
             translation=translation["text"] if translation is not None else None,
             translation_lang=translation.get("source_lang_en") if translation is not None else None,
             qtype="twitter",
-            name="✖️ X (Twitter)"
+            name="✖️ X (Twitter)",
+            sensitive=preview_raw.get("possibly_sensitive", False),
+            spoiler_text=None
         )
 
     async def parse_quote(self, data: Any) -> Post | None:
@@ -77,7 +79,9 @@ class Twitter:
                 translation=None,
                 translation_lang=None,
                 qtype="twitter",
-                name="✖️ X (Twitter)"
+                name="✖️ X (Twitter)",
+                sensitive=data.get("possibly_sensitive", False),
+                spoiler_text=None
             )
 
     async def _parse_community_note(self, data: Any) -> str:

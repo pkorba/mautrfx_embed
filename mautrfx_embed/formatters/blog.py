@@ -53,6 +53,13 @@ class Blog:
             # This has to be done AFTER the facets have been substituted
             if data.qtype == "twitter":
                 text = re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", text)
+            if data.spoiler_text:
+                return (
+                    f"<p><details>"
+                    f"<summary><b>CW:</b> {data.spoiler_text}</summary><br>"
+                    f"{text.replace('\n', '<br>')}"
+                    f"</details></p>"
+                )
             return f"<p>{text.replace('\n', '<br>')}</p>"
 
         if data.facets:
@@ -139,31 +146,25 @@ class Blog:
         for i, vid in enumerate(data.videos):
             if not vid.thumbnail_url:
                 continue
-            image = Media(
-                url=vid.thumbnail_url,
-                width=vid.width,
-                height=vid.height,
-                thumbnail_url=vid.thumbnail_url,
-                filetype=vid.filetype,
-            )
             name = f"Vid#{i + 1}" if vid.filetype == "v" else f"Audio#{i + 1}"
-            thumbs_data.append((image, vid.url, name, True))
+            thumbs_data.append((vid, name, True))
 
         for i, pic in enumerate(data.photos):
-            thumbs_data.append((pic, pic.url, f"Pic#{i + 1}", False))
+            thumbs_data.append((pic, f"Pic#{i + 1}", False))
 
         thumbs = []
         for thumb in thumbs_data:
             image_mxc, width, height = await self.utils.get_matrix_image_url(
                 thumb[0],
                 300 if (len(data.videos) + len(data.photos) == 1) else 100,
-                thumb[3]
+                thumb[2],
+                data.sensitive,
             )
             await asyncio.sleep(0.2)
             if image_mxc:
                 thumbs.append(f"{await self._get_link(
-                    thumb[1],
-                    await self._get_image(image_mxc, thumb[2], (width, height), is_html),
+                    thumb[0].url,
+                    await self._get_image(image_mxc, thumb[1], (width, height), is_html),
                     is_html
                 )}")
         # This can happen if the list contains only audio files without thumbnails
@@ -175,11 +176,12 @@ class Blog:
         # Markdown
         return f"> {" ".join(thumbs)}  \n>  \n"
 
-    async def get_media_list(self, media: list, is_html: bool = True) -> str:
+    async def get_media_list(self, media: list, nsfw: bool = False, is_html: bool = True) -> str:
         """
         Get message part with a list of media attachments. Also serves as a fallback mechanism
         for client that are not able to display thumbnails
         :param media: list of media attachments
+        :param nsfw: True if media contains NSFW content, False otherwise
         :param is_html: True for HTML, False for Markdown
         :return: formatted string with list of media attachments
         """
@@ -206,6 +208,8 @@ class Blog:
                 title = "Videos"
             else:
                 title = "Photos"
+            if nsfw:
+                title += " (NSFW)"
             # HTML
             if is_html:
                 return f"<p><b>{title}: </b>{', '.join(media_formatted)}</p>"
@@ -230,9 +234,9 @@ class Blog:
         text += res if is_html else res.replace("> > ", "> > > ")
         res = await self.get_media_previews(data, is_html)
         text += res if is_html else res.replace("> ", "> > ")
-        res = await self.get_media_list(data.videos, is_html)
+        res = await self.get_media_list(data.videos, data.sensitive, is_html)
         text += res if is_html else res.replace("> ", "> > ")
-        res = await self.get_media_list(data.photos, is_html)
+        res = await self.get_media_list(data.photos, data.sensitive, is_html)
         text += res if is_html else res.replace("> ", "> > ")
         res = await self.get_external_link(data.link, is_html)
         text += res if is_html else res.replace("> > ", "> > > ")

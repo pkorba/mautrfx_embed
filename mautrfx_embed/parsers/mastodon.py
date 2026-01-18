@@ -52,7 +52,9 @@ class Mastodon:
             translation=None,
             translation_lang=None,
             qtype="mastodon",
-            name=f"🐘 {re.sub(r"https://(www\.)?(.*?)/.*", r"\2", preview_raw["url"])}"
+            name=f"🐘 {re.sub(r"https://(www\.)?(.*?)/.*", r"\2", preview_raw["url"])}",
+            sensitive=preview_raw["sensitive"],
+            spoiler_text=preview_raw["spoiler_text"]
         )
 
     async def parse_quote(self, data: Any) -> Post | None:
@@ -94,7 +96,9 @@ class Mastodon:
                 qtype="mastodon",
                 name=f"🐘 {re.sub(
                     r"https://(www\.)?(.*?)/.*", r"\2", quote["quoted_status"]["url"]
-                )}"
+                )}",
+                sensitive=quote["sensitive"],
+                spoiler_text=quote["spoiler_text"]
             )
 
     def _parse_text(self, text: str) -> tuple[str, str]:

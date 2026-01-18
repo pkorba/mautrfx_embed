@@ -65,6 +65,8 @@ class Post:
     translation_lang: str
     qtype: str
     name: str
+    sensitive: bool
+    spoiler_text: str
 
 
 twitter_domains = [
