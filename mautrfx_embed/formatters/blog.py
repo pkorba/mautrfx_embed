@@ -53,10 +53,10 @@ class Blog:
                 text = re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", text)
             if data.spoiler_text:
                 return (
-                    f"<p><details>"
+                    f"<details>"
                     f"<summary><b>CW:</b> {data.spoiler_text}</summary><br>"
-                    f"{text.replace('\n', '<br>')}"
-                    f"</details></p>"
+                    f"<p>{text.replace('\n', '<br>')}</p>"
+                    f"</details>"
                 )
             return f"<p>{text.replace('\n', '<br>')}</p>"
 
