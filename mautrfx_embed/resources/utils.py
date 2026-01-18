@@ -98,7 +98,7 @@ class Utilities:
             img.thumbnail((image[1], image[2]), Image.Resampling.LANCZOS)
             # Apply blur if it's a NSFW image
             if image[4] and not self.config["show_nsfw"]:
-                img = img.filter(ImageFilter.GaussianBlur(30))
+                img = img.filter(ImageFilter.GaussianBlur(40))
             # If it's a thumbnail to a video file, add play button overlay
             if image[3]:
                 self._add_playbutton_overlay(img)
