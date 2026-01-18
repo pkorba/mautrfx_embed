@@ -6,10 +6,9 @@ from ..resources.utils import Utilities
 
 
 class Bsky:
-    def __init__(self, loop: AbstractEventLoop, utils: Utilities, player: str):
+    def __init__(self, loop: AbstractEventLoop, utils: Utilities):
         self.loop = loop
         self.utils = utils
-        self.player = player
 
     async def parse_preview(self, preview_raw: Any) -> Post:
         """
@@ -97,7 +96,7 @@ class Bsky:
             video = Media(
                 width=aspect_ratio["width"] if aspect_ratio is not None else 0,
                 height=aspect_ratio["height"] if aspect_ratio is not None else 0,
-                url=self.player + media["playlist"],
+                url=self.utils.config["player"] + media["playlist"],
                 thumbnail_url=media["thumbnail"],
                 filetype="v"
             )

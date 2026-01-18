@@ -2,15 +2,13 @@ import asyncio
 import re
 from time import strftime, localtime
 
-from ..resources.datastructures import Post, Media, Facet, Link
+from ..resources.datastructures import Post, Facet, Link
 from ..resources.utils import Utilities
 
 
 class Blog:
-    def __init__(self, utils: Utilities, nitter_url: str, nitter_redirect: bool):
+    def __init__(self, utils: Utilities):
         self.utils = utils
-        self.nitter_url = nitter_url
-        self.nitter_redirect = nitter_redirect
 
     async def get_author(self, data: Post, is_html: bool = True) -> str:
         """
@@ -156,7 +154,8 @@ class Blog:
         for thumb in thumbs_data:
             image_mxc, width, height = await self.utils.get_matrix_image_url(
                 thumb[0],
-                300 if (len(data.videos) + len(data.photos) == 1) else 100,
+                self.utils.config["thumbnail_large"] if (len(data.videos) + len(data.photos) == 1)
+                else self.utils.config["thumbnail_small"],
                 thumb[2],
                 data.sensitive,
             )
@@ -369,19 +368,19 @@ class Blog:
         :param data: Preview object with data from API
         :return:
         """
-        if data.qtype != "twitter" or not self.nitter_redirect:
+        if data.qtype != "twitter" or not self.utils.config["nitter_redirect"]:
             return
 
         if data.author_url:
-            data.author_url = data.author_url.replace("x.com", self.nitter_url)
+            data.author_url = data.author_url.replace("x.com", self.utils.config["nitter_url"])
         if data.url:
-            data.url = data.url.replace("x.com", self.nitter_url)
+            data.url = data.url.replace("x.com", self.utils.config["nitter_url"])
 
         if len(data.facets) > 0:
             for facet in data.facets:
                 facet.url = facet.url.replace(
                     "https://x.com",
-                    f"https://{self.nitter_url}"
+                    f"https://{self.utils.config["nitter_url"]}"
                 )
 
         if data.quote:

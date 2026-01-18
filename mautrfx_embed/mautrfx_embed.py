@@ -18,13 +18,13 @@ class Config(BaseProxyConfig):
     def do_update(self, helper: ConfigUpdateHelper) -> None:
         helper.copy("nitter_redirect")
         helper.copy("nitter_url")
-        helper.copy("bsky_player")
+        helper.copy("player")
+        helper.copy("show_nsfw")
+        helper.copy("thumbnail_large")
+        helper.copy("thumbnail_small")
 
 
 class MautrFxEmbedBot(Plugin):
-    headers = {
-        "User-Agent": "MautrFxEmbedBot/1.0.0"
-    }
     utils = None
     blog = None
     mastodon = None
@@ -35,16 +35,10 @@ class MautrFxEmbedBot(Plugin):
         await super().start()
         self.config.load_and_update()
         self.utils = Utilities(
-            client=self.client,
-            http=self.http,
-            loop=self.loop,
-            log=self.log,
-            headers=self.headers
+            bot=self
         )
         self.blog = Blog(
-            utils=self.utils,
-            nitter_url=self.config["nitter_url"],
-            nitter_redirect=self.config["nitter_redirect"]
+            utils=self.utils
         )
         self.mastodon = Mastodon(
             loop=self.loop,
@@ -52,8 +46,7 @@ class MautrFxEmbedBot(Plugin):
         )
         self.bsky = Bsky(
             loop=self.loop,
-            utils=self.utils,
-            player=self.config["bsky_player"]
+            utils=self.utils
         )
         self.twitter = Twitter(
             utils=self.utils
@@ -228,7 +221,9 @@ class MautrFxEmbedBot(Plugin):
             translation=None,
             translation_lang=None,
             qtype="instagram",
-            name="🖼️ Instagram"
+            name="🖼️ Instagram",
+            sensitive=False,
+            spoiler_text=None
         )
 
     @classmethod

@@ -1,13 +1,11 @@
 import io
-from asyncio import AbstractEventLoop
 from time import strptime, mktime
-from typing import Any, Mapping
+from typing import Any
 
 from PIL import Image, ImageFile, ImageFilter, UnidentifiedImageError
 from aiohttp import ClientSession, ClientTimeout, ClientError
 from mautrix.errors import MatrixResponseError
-from mautrix.util.logging import TraceLogger
-from maubot.client import MaubotMatrixClient
+from maubot import Plugin
 
 from .datastructures import Media
 from ..resources.assets import play
@@ -16,17 +14,13 @@ from ..resources.assets import play
 class Utilities:
     def __init__(
             self,
-            client: MaubotMatrixClient,
-            http: ClientSession,
-            loop: AbstractEventLoop,
-            log: TraceLogger,
-            headers: Mapping[str, str]
+            bot: Plugin
     ) -> None:
-        self.http = http
-        self.log = log
-        self.client = client
-        self.loop = loop
-        self.headers = headers
+        self.bot = bot
+        self.config = self.bot.config
+        self.headers = {
+            "User-Agent": "MautrFxEmbedBot/1.0.0"
+        }
 
     async def parse_interaction(self, value: int) -> str:
         """
@@ -62,7 +56,7 @@ class Utilities:
         """
         timeout = ClientTimeout(total=20)
         try:
-            response = await self.http.get(
+            response = await self.bot.http.get(
                 url,
                 headers=self.headers,
                 timeout=timeout,
@@ -70,7 +64,7 @@ class Utilities:
             )
             return await response.read()
         except ClientError as e:
-            self.log.error(f"Preparing image - connection failed: {url}: {e}")
+            self.bot.log.error(f"Preparing image - connection failed: {url}: {e}")
 
     async def get_preview(self, url: str) -> Any:
         """
@@ -80,7 +74,7 @@ class Utilities:
         """
         timeout = ClientTimeout(total=20)
         try:
-            response = await self.http.get(
+            response = await self.bot.http.get(
                 url,
                 headers=self.headers,
                 timeout=timeout,
@@ -88,7 +82,7 @@ class Utilities:
             )
             return await response.json()
         except ClientError as e:
-            self.log.error(f"Connection failed: {e}")
+            self.bot.log.error(f"Connection failed: {e}")
             return ""
 
     def _get_thumbnail(self, image: tuple[bytes, int, int, bool, bool]) -> tuple[bytes, int, int]:
@@ -103,8 +97,8 @@ class Utilities:
             img = Image.open(io.BytesIO(image[0]))
             img.thumbnail((image[1], image[2]), Image.Resampling.LANCZOS)
             # Apply blur if it's a NSFW image
-            if image[4]:
-                img = img.filter(ImageFilter.BoxBlur(50))
+            if image[4] and not self.config["show_nsfw"]:
+                img = img.filter(ImageFilter.GaussianBlur(30))
             # If it's a thumbnail to a video file, add play button overlay
             if image[3]:
                 self._add_playbutton_overlay(img)
@@ -116,7 +110,7 @@ class Utilities:
             img_byte_arr.seek(0)
             image = img_byte_arr.getvalue()
         except (OSError, ValueError, TypeError, FileNotFoundError, UnidentifiedImageError) as e:
-            self.log.error(f"Error generating thumbnail: {e}")
+            self.bot.log.error(f"Error generating thumbnail: {e}")
             return (b'', 0, 0)
         return image, img.width, img.height
 
@@ -139,7 +133,7 @@ class Utilities:
             offset = ((img_w - play_img.width) // 2, (img_h - play_img.width) // 2)
             img.paste(play_img, offset, play_img)
         except (OSError, ValueError, TypeError, FileNotFoundError, UnidentifiedImageError) as e:
-            self.log.error(f"Error adding play button overlay to the thumbnail: {e}")
+            self.bot.log.error(f"Error adding play button overlay to the thumbnail: {e}")
             raise
 
     async def get_matrix_image_url(
@@ -165,7 +159,7 @@ class Utilities:
                 return "", 0, 0
 
             # Generate thumbnail
-            image_data, width, height = await self.loop.run_in_executor(
+            image_data, width, height = await self.bot.loop.run_in_executor(
                 None,
                 self._get_thumbnail,
                 (data, size, size, is_video, nsfw)
@@ -174,17 +168,17 @@ class Utilities:
                 return "", 0, 0
 
             # Upload image to Matrix server
-            mxc_uri = await self.client.upload_media(
+            mxc_uri = await self.bot.client.upload_media(
                 data=image_data,
                 mime_type="image/jpeg",
                 filename="thumbnail.jpg",
                 size=len(image_data))
             return mxc_uri, width, height
         except ClientError as e:
-            self.log.error(f"Downloading image - connection failed: {e}")
+            self.bot.log.error(f"Downloading image - connection failed: {e}")
             return "", 0, 0
         except (ValueError, MatrixResponseError) as e:
-            self.log.error(f"Uploading image to Matrix server: {e}")
+            self.bot.log.error(f"Uploading image to Matrix server: {e}")
             return "", 0, 0
 
     async def get_instagram_preview(self, url: str) -> str:
@@ -199,7 +193,7 @@ class Utilities:
         }
         timeout = ClientTimeout(total=20)
         try:
-            response = await self.http.get(
+            response = await self.bot.http.get(
                 url,
                 headers=headers,
                 timeout=timeout,
@@ -208,8 +202,8 @@ class Utilities:
             # This header contains direct URL to the video
             return response.headers["location"]
         except ClientError as e:
-            self.log.error(f"Connection failed: {e}")
+            self.bot.log.error(f"Connection failed: {e}")
             return ""
         except KeyError as e:
-            self.log.error(f"Missing 'location' header: {e}")
+            self.bot.log.error(f"Missing 'location' header: {e}")
             return ""

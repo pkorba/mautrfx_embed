@@ -1,3 +1,6 @@
 nitter_redirect: true
 nitter_url: "nitter.net"
-bsky_player: "https://korba.neocities.org/player?url="
+player: "https://korba.neocities.org/player?url="
+show_nsfw: false
+thumbnail_large: 300
+thumbnail_small: 100
