@@ -23,7 +23,10 @@ Just paste a link in the chat. The bot will scan the message and if it matches t
 You can configure the plugin in maubot's control panel.  
 * `nitter_redirect` - this setting controls whether plugin will replace most of X/Twitter links within an embed with links using address defined in `nitter_url` (default: `true`)  
 * `nitter_url`: address of a Nitter instance (default: `nitter.net`)  
-* `bsky_player` - address of a HLS media player that is capable of playing BlueSky video links. (default: `https://korba.neocities.org/player?url=`)
+* `player` - address of a HLS media player that is capable of playing BlueSky video links. (default: `https://korba.neocities.org/player?url=`)
+* `show_nsfw` - by default plugin respects spoiler status of the post and blurs sensitive media. If you want to override these settings, you can set this pref to `true` (default `false`)
+* `thumbnail_large` - maximum thumbnail size in pixels when there's only one image/video in a post/quote
+* `thumbnail_small` - maximum thumbnail size in pixels when there's more than one image/video in a post/quote
 
 ## Plugin data sources:
 - X/Twitter - [FxEmbed API](https://github.com/FxEmbed/FxEmbed)
@@ -31,15 +34,13 @@ You can configure the plugin in maubot's control panel.
 - Mastodon - [Mastodon API](https://docs.joinmastodon.org/methods/statuses/#get)
 - Instagram - Plugin fetches the URL to the reel from kkinstagram.com
 
-## Known issues  
-- **Currently spoilers are NOT SUPPORTED**
+## Known issues
 - Missing support for custom emojis on Mastodon
 
 ## Planned features  
 - Reddit support
 - Lemmy support
 - Piefed support
-- configurable size of thumbnails
 
 ## FAQ  
 **Q:** Why BlueSky videos open in a website with some suspicious looking URL?  
