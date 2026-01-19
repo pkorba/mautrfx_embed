@@ -124,6 +124,7 @@ class Utilities:
         """
         Adds a play button overlay to thumbnails of video files
         :param img: the image to add overlay to
+        :param overlay: the overlay
         :return: image with a play button overlay
         """
         if not img:
