@@ -78,7 +78,7 @@ twitter_domains = [
     "twittpr.com",
     "fixvx.com",
     "vxtwitter.com",
-    "fixvtwitter.com"
+    "fixvtwitter.com",
     "stupidpenisx.com",
     "girlcockx.com",
     "nitter.net",
