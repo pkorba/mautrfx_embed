@@ -97,12 +97,17 @@ class Utilities:
         try:
             img = Image.open(io.BytesIO(image[0]))
             img.thumbnail((image[1], image[2]), Image.Resampling.LANCZOS)
-            # Apply blur if it's a NSFW image
+            # Apply blur if it's a NSFW image or video
             if image[4] and not self.config["show_nsfw"]:
                 img = img.filter(ImageFilter.GaussianBlur(40))
-            # If it's a thumbnail to a video file, add play button overlay
-            if image[3]:
-                self._add_playbutton_overlay(img)
+                # Add NSFW warning
+                if image[3]:
+                    self._add_overlay(img, self.files["nsfw_vid"])
+                else:
+                    self._add_overlay(img, self.files["nsfw_pic"])
+            # If it's a thumbnail to a video file and not NSFW, add play button overlay
+            elif image[3]:
+                self._add_overlay(img, self.files["play"])
             # The result is a JPEG so we have to remove the transparency layer if there is one
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
@@ -115,7 +120,7 @@ class Utilities:
             return (b'', 0, 0)
         return image, img.width, img.height
 
-    def _add_playbutton_overlay(self, img: ImageFile) -> None:
+    def _add_overlay(self, img: ImageFile, overlay: bytes) -> None:
         """
         Adds a play button overlay to thumbnails of video files
         :param img: the image to add overlay to
@@ -125,9 +130,9 @@ class Utilities:
             return
         img_w, img_h = img.size
         try:
-            play_img = Image.open(io.BytesIO(self.files["play"]))
-            # The default size of play button is 120x120
-            # If play button is bigger than thumbnail's half size, resize the button
+            play_img = Image.open(io.BytesIO(overlay))
+            # The default size of overlays is 100x100
+            # If overlay is bigger than thumbnail's half size, resize the overlay
             overlay_s = min(img_w, img_h) // 2
             if overlay_s < play_img.width:
                 play_img = play_img.resize((overlay_s, overlay_s), Image.Resampling.LANCZOS)

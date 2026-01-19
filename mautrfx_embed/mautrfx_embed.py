@@ -35,7 +35,9 @@ class MautrFxEmbedBot(Plugin):
         await super().start()
         self.config.load_and_update()
         files = {
-            "play": await self.loader.read_file("mautrfx_embed/blobs/play.png")
+            "play": await self.loader.read_file("mautrfx_embed/blobs/play.png"),
+            "nsfw_vid": await self.loader.read_file("mautrfx_embed/blobs/warning_video.png"),
+            "nsfw_pic": await self.loader.read_file("mautrfx_embed/blobs/warning_image.png"),
         }
         self.utils = Utilities(
             bot=self,
