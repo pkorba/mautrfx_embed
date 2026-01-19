@@ -97,8 +97,8 @@ class Mastodon:
                 name=f"🐘 {re.sub(
                     r"https://(www\.)?(.*?)/.*", r"\2", quote["quoted_status"]["url"]
                 )}",
-                sensitive=quote["sensitive"],
-                spoiler_text=quote["spoiler_text"]
+                sensitive=quote["quoted_status"]["sensitive"],
+                spoiler_text=quote["quoted_status"]["spoiler_text"]
             )
 
     def _parse_text(self, text: str) -> tuple[str, str]:
