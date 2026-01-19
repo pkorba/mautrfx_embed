@@ -20,7 +20,7 @@ class Utilities:
         self.files = files
         self.config = self.bot.config
         self.headers = {
-            "User-Agent": "MautrFxEmbedBot/1.1.2"
+            "User-Agent": "MautrFxEmbedBot/1.1.3"
         }
 
     async def parse_interaction(self, value: int) -> str:
