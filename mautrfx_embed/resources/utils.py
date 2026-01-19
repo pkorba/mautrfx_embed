@@ -29,6 +29,8 @@ class Utilities:
         :param value: number of interactions
         :return: shortened number
         """
+        if not value:
+            return ""
         millions = divmod(value, 1000000)
         thousands = divmod(millions[1], 1000)
         if millions[0]:
