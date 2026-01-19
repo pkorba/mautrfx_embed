@@ -34,8 +34,12 @@ class MautrFxEmbedBot(Plugin):
     async def start(self) -> None:
         await super().start()
         self.config.load_and_update()
+        files = {
+            "play": await self.loader.read_file("mautrfx_embed/blobs/play.png")
+        }
         self.utils = Utilities(
-            bot=self
+            bot=self,
+            files=files
         )
         self.blog = Blog(
             utils=self.utils

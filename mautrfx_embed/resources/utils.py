@@ -3,20 +3,21 @@ from time import strptime, mktime
 from typing import Any
 
 from PIL import Image, ImageFile, ImageFilter, UnidentifiedImageError
-from aiohttp import ClientSession, ClientTimeout, ClientError
+from aiohttp import ClientTimeout, ClientError
 from mautrix.errors import MatrixResponseError
 from maubot import Plugin
 
 from .datastructures import Media
-from ..resources.assets import play
 
 
 class Utilities:
     def __init__(
             self,
-            bot: Plugin
+            bot: Plugin,
+            files: dict[str, bytes]
     ) -> None:
         self.bot = bot
+        self.files = files
         self.config = self.bot.config
         self.headers = {
             "User-Agent": "MautrFxEmbedBot/1.0.0"
@@ -124,7 +125,7 @@ class Utilities:
             return
         img_w, img_h = img.size
         try:
-            play_img = Image.open(io.BytesIO(play))
+            play_img = Image.open(io.BytesIO(self.files["play"]))
             # The default size of play button is 120x120
             # If play button is bigger than thumbnail's half size, resize the button
             overlay_s = min(img_w, img_h) // 2
