@@ -158,9 +158,8 @@ class MautrFxEmbedBot(Plugin):
         html += await self.blog.get_poll(preview)
         body += await self.blog.get_poll(preview, False)
 
-        # Multimedia previews
+        # Multimedia previews only for HTML version
         html += await self.blog.get_media_previews(preview)
-        body += await self.blog.get_media_previews(preview, False)
 
         # Multimedia list for clients that have problems displaying images/links
         # Videos

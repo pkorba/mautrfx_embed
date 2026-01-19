@@ -131,7 +131,7 @@ class Blog:
             .replace(",", " ")
         )
 
-    async def get_media_previews(self, data: Post, is_html: bool = True) -> str:
+    async def get_media_previews(self, data: Post) -> str:
         """
         Get message part that contains media attachment thumbnails
         :param data: Post data
@@ -163,17 +163,13 @@ class Blog:
             if image_mxc:
                 thumbs.append(f"{await self._get_link(
                     thumb[0].url,
-                    await self._get_image(image_mxc, thumb[1], (width, height), is_html),
-                    is_html
+                    await self._get_image(image_mxc, thumb[1], (width, height), True),
+                    True
                 )}")
         # This can happen if the list contains only audio files without thumbnails
         if not thumbs:
             return ""
-        # HTML
-        if is_html:
-            return f"<p>{" ".join(thumbs)}</p>"
-        # Markdown
-        return f"> {" ".join(thumbs)}  \n>  \n"
+        return f"<p>{" ".join(thumbs)}</p>"
 
     async def get_media_list(self, media: list, nsfw: bool = False, is_html: bool = True) -> str:
         """
@@ -231,8 +227,8 @@ class Blog:
         text += res if is_html else res.replace("> ", "> > ")
         res = await self.get_poll(data, is_html)
         text += res if is_html else res.replace("> > ", "> > > ")
-        res = await self.get_media_previews(data, is_html)
-        text += res if is_html else res.replace("> ", "> > ")
+        if is_html:
+            text += await self.get_media_previews(data)
         res = await self.get_media_list(data.videos, data.sensitive, is_html)
         text += res if is_html else res.replace("> ", "> > ")
         res = await self.get_media_list(data.photos, data.sensitive, is_html)
