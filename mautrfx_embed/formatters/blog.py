@@ -145,10 +145,10 @@ class Blog:
             if not vid.thumbnail_url:
                 continue
             name = f"Vid#{i + 1}" if vid.filetype == "v" else f"Audio#{i + 1}"
-            thumbs_data.append((vid, name, True))
+            thumbs_data.append((vid, name))
 
         for i, pic in enumerate(data.photos):
-            thumbs_data.append((pic, f"Pic#{i + 1}", False))
+            thumbs_data.append((pic, f"Pic#{i + 1}"))
 
         thumbs = []
         for thumb in thumbs_data:
@@ -156,7 +156,6 @@ class Blog:
                 thumb[0],
                 self.utils.config["thumbnail_large"] if (len(data.videos) + len(data.photos) == 1)
                 else self.utils.config["thumbnail_small"],
-                thumb[2],
                 data.sensitive,
             )
             await asyncio.sleep(0.2)

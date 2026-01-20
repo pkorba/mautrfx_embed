@@ -147,22 +147,26 @@ class Utilities:
 
     async def get_matrix_image_url(
             self,
-            image: Media,
+            media: Media,
             size: int,
-            is_video: bool = False,
             nsfw: bool = False
     ) -> tuple[str, int, int]:
         """
         Download image from external URL and upload its thumbnail to Matrix
-        :param image: Media object with data about an image
+        :param media: Media object with data about an image
         :param size: max size of a generated thumbnail
-        :param is_video: video file thumbnails get play button overlay added to them
         :param nsfw: True if image needs blurring, False otherwise
         :return: a tuple with matrix mxc URL, width, and height of the thumbnail
         """
         try:
             # Download image from external source
-            url = image.thumbnail_url if image.thumbnail_url else image.url
+            if media.thumbnail_url:
+                url = media.thumbnail_url
+            elif media.filetype == "p" and media.url:
+                url = media.url
+            else:
+                return "", 0, 0
+
             data = await self.download_image(url)
             if not data:
                 return "", 0, 0
@@ -171,7 +175,7 @@ class Utilities:
             image_data, width, height = await self.bot.loop.run_in_executor(
                 None,
                 self._get_thumbnail,
-                (data, size, size, is_video, nsfw)
+                (data, size, size, media.filetype != "p", nsfw)
             )
             if not image_data:
                 return "", 0, 0
