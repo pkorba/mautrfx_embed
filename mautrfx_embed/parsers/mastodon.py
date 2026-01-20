@@ -219,11 +219,11 @@ class Mastodon:
         m = divmod(h[1], 60)  # minutes
         s = m[1]  # seconds
         if d[0]:
-            status = f"{d[0] + 1} days left"
+            status = f"{d[0]} days left"
         elif h[0]:
-            status = f"{h[0] + 1} hours left"
+            status = f"{h[0]} hours left"
         elif m[0]:
-            status = f"{m[0] + 1} minutes left"
+            status = f"{m[0]} minutes left"
         else:
-            status = f"{s + 1} seconds left"
+            status = f"{s} seconds left"
         return status
