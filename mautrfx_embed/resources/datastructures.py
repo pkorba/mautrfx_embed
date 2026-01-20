@@ -95,6 +95,7 @@ twitter_domains = [
 bsky_domains = [
     "bsky.app/profile",
     "fxbsky.app/profile",
+    "blacksky.community/profile",
     "skyview.social/?url=https://bsky.app/profile/",
     "skyview.social/?url=bsky.app/profile/"
 ]
