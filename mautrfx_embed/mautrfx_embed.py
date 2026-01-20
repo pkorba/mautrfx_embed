@@ -10,7 +10,7 @@ from .formatters.blog import Blog
 from .parsers.bsky import Bsky
 from .parsers.mastodon import Mastodon
 from .parsers.twitter import Twitter
-from .resources.datastructures import Post, twitter_domains, instagram_domains, bsky_domains
+from .resources.datastructures import Post
 from .resources.utils import Utilities
 
 
@@ -22,6 +22,9 @@ class Config(BaseProxyConfig):
         helper.copy("show_nsfw")
         helper.copy("thumbnail_large")
         helper.copy("thumbnail_small")
+        helper.copy("twitter_domains")
+        helper.copy("bluesky_domains")
+        helper.copy("instagram_domains")
 
 
 class MautrFxEmbedBot(Plugin):
@@ -94,16 +97,16 @@ class MautrFxEmbedBot(Plugin):
         """
         canonical_urls = []
         for url in urls:
-            for domain in twitter_domains:
-                if f"https://{domain}" in url[1]:
+            for domain in self.config["twitter_domains"]:
+                if url[1].startswith(f"https://{domain}"):
                     canonical_urls.append(url[1].replace(domain, "api.fxtwitter.com"))
                     continue
-            for domain in bsky_domains:
-                if f"https://{domain}" in url[1]:
+            for domain in self.config["bluesky_domains"]:
+                if url[1].startswith(f"https://{domain}/profile"):
                     new_url = (
                         url[1]
                         .replace(
-                            domain,
+                            f"{domain}/profile",
                             "api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=at:/"
                         )
                         .replace("/post/", "/app.bsky.feed.post/")
@@ -111,9 +114,9 @@ class MautrFxEmbedBot(Plugin):
                     new_url += "&depth=0"
                     canonical_urls.append(new_url)
                     continue
-            for domain in instagram_domains:
-                if f"https://{domain}" in url[1]:
-                    canonical_urls.append(url[1].replace(domain, "www.kkinstagram.com/reel"))
+            for domain in self.config["instagram_domains"]:
+                if url[1].startswith(f"https://{domain}/reel"):
+                    canonical_urls.append(url[1].replace(domain, "www.kkinstagram.com"))
                     continue
             # Mastodon post links
             m = re.match(r"(https://.+\.[A-Za-z]+)/@[A-Za-z0-9_]+/([0-9]+)", url[1])
@@ -127,7 +130,7 @@ class MautrFxEmbedBot(Plugin):
             return await self.twitter.parse_preview(preview_raw)
         if "api.bsky.app" in url:
             return await self.bsky.parse_preview(preview_raw)
-        if "www.kkinstagram.com/reel" in url:
+        if "www.kkinstagram.com" in url:
             return await self._parse_instagram_preview(preview_raw)
         return await self.mastodon.parse_preview(preview_raw)
 
