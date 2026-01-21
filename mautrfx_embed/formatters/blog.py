@@ -276,6 +276,8 @@ class Blog:
             text.append(f"💬 {data.replies}")
         if data.reposts:
             text.append(f"🔁 {data.reposts}")
+        if data.quotes:
+            text.append(f"❞ {data.quotes}")
         if data.likes:
             text.append(f"❤️ {data.likes}")
         if data.views:

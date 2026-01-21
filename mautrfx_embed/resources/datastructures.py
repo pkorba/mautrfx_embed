@@ -50,6 +50,7 @@ class Post:
     reposts: str
     likes: str
     views: str
+    quotes: str
     community_note: str
     author_name: str
     author_screen_name: str

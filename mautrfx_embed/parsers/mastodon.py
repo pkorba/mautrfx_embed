@@ -38,6 +38,7 @@ class Mastodon:
             reposts=await self.utils.parse_interaction(preview_raw["reblogs_count"]),
             likes=await self.utils.parse_interaction(preview_raw["favourites_count"]),
             views=None,
+            quotes=await self.utils.parse_interaction(preview_raw["quotes_count"]),
             community_note=None,
             author_name=preview_raw["account"]["display_name"],
             author_screen_name=preview_raw["account"]["username"],
@@ -80,6 +81,7 @@ class Mastodon:
                 reposts=None,
                 likes=None,
                 views=None,
+                quotes=await self.utils.parse_interaction(data["quotes_count"]),
                 community_note=None,
                 author_name=quote["quoted_status"]["account"]["display_name"],
                 author_url=quote["quoted_status"]["account"]["url"],
@@ -221,9 +223,9 @@ class Mastodon:
         if d[0]:
             status = f"{d[0]} days left"
         elif h[0]:
-            status = f"{h[0]} hours left"
+            status = f"{h[0] + 1} hours left"
         elif m[0]:
-            status = f"{m[0]} minutes left"
+            status = f"{m[0] + 1} minutes left"
         else:
-            status = f"{s} seconds left"
+            status = f"{s + 1} seconds left"
         return status
