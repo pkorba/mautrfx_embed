@@ -88,6 +88,26 @@ class Utilities:
             self.bot.log.error(f"Connection failed: {e}")
             return ""
 
+    async def get_html_preview(self, url: str) -> Any:
+        """
+        Get HTML webpage source.
+        :param url: source URL
+        :return: text content of the response
+        """
+        headers = {"User-Agent": "WhatsApp/2"}
+        timeout = ClientTimeout(total=20)
+        try:
+            response = await self.bot.http.get(
+                url,
+                headers=headers,
+                timeout=timeout,
+                raise_for_status=True
+            )
+            return await response.text()
+        except ClientError as e:
+            self.bot.log.error(f"Connection failed: {e}")
+            return ""
+
     def _get_thumbnail(self, image: tuple[bytes, int, int, bool, bool]) -> tuple[bytes, int, int]:
         """
         Convert original thumbnail into 100x100 one
@@ -199,31 +219,4 @@ class Utilities:
                 size=len(data))
         except (ValueError, MatrixResponseError) as e:
             self.bot.log.error(f"Uploading image to Matrix server: {e}")
-            return ""
-
-    async def get_instagram_preview(self, url: str) -> str:
-        """
-        Get url to Instagram video preview.
-        :param url: source URL
-        :return: Instagram video preview url
-        """
-        # Use Discord's user agent because kkinstagram serves different responses based on it
-        headers = {
-            'User-Agent': "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)"
-        }
-        timeout = ClientTimeout(total=20)
-        try:
-            response = await self.bot.http.get(
-                url,
-                headers=headers,
-                timeout=timeout,
-                raise_for_status=True,
-                allow_redirects=False)
-            # This header contains direct URL to the video
-            return response.headers["location"]
-        except ClientError as e:
-            self.bot.log.error(f"Connection failed: {e}")
-            return ""
-        except KeyError as e:
-            self.bot.log.error(f"Missing 'location' header: {e}")
             return ""

@@ -10,6 +10,7 @@ from .formatters.blog import Blog
 from .parsers.bsky import Bsky
 from .parsers.mastodon import Mastodon
 from .parsers.twitter import Twitter
+from .parsers.miscellaneous import Miscellaneous
 from .resources.datastructures import Post
 from .resources.utils import Utilities
 
@@ -33,6 +34,7 @@ class MautrFxEmbedBot(Plugin):
     mastodon = None
     bsky = None
     twitter = None
+    misc = None
 
     async def start(self) -> None:
         await super().start()
@@ -60,6 +62,9 @@ class MautrFxEmbedBot(Plugin):
         self.twitter = Twitter(
             utils=self.utils
         )
+        self.misc = Miscellaneous(
+            loop=self.loop
+        )
 
     @command.passive(r"(https?://\S+)", multiple=True)
     async def embed(self, evt: MessageEvent, matches: list[tuple[str, str]]) -> None:
@@ -72,11 +77,8 @@ class MautrFxEmbedBot(Plugin):
 
         previews = []
         for url in canonical_urls:
-            if "kkinstagram.com/reel" in url:
-                preview_raw = await self.utils.get_instagram_preview(url)
-                # For private reels kkinstagram returns original reel URL
-                if "https://www.instagram.com/reel" in preview_raw:
-                    continue
+            if url.startswith(("https://www.instagram.com/reel", "https://vm.tiktok.com")):
+                preview_raw = await self.utils.get_html_preview(url)
             else:
                 preview_raw = await self.utils.get_preview(url)
             if preview_raw:
@@ -116,8 +118,10 @@ class MautrFxEmbedBot(Plugin):
                     continue
             for domain in self.config["instagram_domains"]:
                 if url[1].startswith(f"https://{domain}/reel"):
-                    canonical_urls.append(url[1].replace(domain, "www.kkinstagram.com"))
+                    canonical_urls.append(url[1].replace(domain, "www.instagram.com"))
                     continue
+            if url[1].startswith(f"https://vm.tiktok.com"):
+                canonical_urls.append(url[1])
             # Mastodon post links
             m = re.match(r"(https://.+\.[A-Za-z]+)/@[A-Za-z0-9_]+/([0-9]+)", url[1])
             if m is not None:
@@ -126,12 +130,14 @@ class MautrFxEmbedBot(Plugin):
         return canonical_urls
 
     async def _parse_preview(self, preview_raw: Any, url: str) -> Post:
-        if "api.fxtwitter.com" in url:
+        if url.startswith("https://api.fxtwitter.com"):
             return await self.twitter.parse_preview(preview_raw)
-        if "api.bsky.app" in url:
+        if url.startswith("https://api.bsky.app"):
             return await self.bsky.parse_preview(preview_raw)
-        if "www.kkinstagram.com" in url:
-            return await self._parse_instagram_preview(preview_raw)
+        if url.startswith("https://www.instagram.com/reel"):
+            return await self.misc.parse_instagram_preview(preview_raw)
+        if url.startswith("https://vm.tiktok.com"):
+            return await self.misc.parse_tiktok_preview(preview_raw)
         return await self.mastodon.parse_preview(preview_raw)
 
     async def _prepare_message(self, preview: Post) -> TextMessageEventContent:
@@ -199,39 +205,6 @@ class MautrFxEmbedBot(Plugin):
             format=Format.HTML,
             body=body,
             formatted_body=html
-        )
-
-    async def _parse_instagram_preview(self, preview_url: str) -> Post:
-        """
-        Build a Post object for Instagram reels
-        :param preview_url: URL to video
-        :return: Post object
-        """
-        return Post(
-            text=None,
-            url=None,
-            markdown=None,
-            replies=None,
-            reposts=None,
-            likes=None,
-            views=None,
-            community_note=None,
-            author_name="Video link",
-            author_screen_name="Instagram",
-            author_url=preview_url,
-            post_date=None,
-            photos=[],
-            videos=[],
-            facets=[],
-            poll=None,
-            link=None,
-            quote=None,
-            translation=None,
-            translation_lang=None,
-            qtype="instagram",
-            name="🖼️ Instagram",
-            sensitive=False,
-            spoiler_text=None
         )
 
     @classmethod
