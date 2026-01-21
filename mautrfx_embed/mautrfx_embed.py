@@ -26,6 +26,7 @@ class Config(BaseProxyConfig):
         helper.copy("twitter_domains")
         helper.copy("bluesky_domains")
         helper.copy("instagram_domains")
+        helper.copy("tiktok_domains")
 
 
 class MautrFxEmbedBot(Plugin):
@@ -120,8 +121,9 @@ class MautrFxEmbedBot(Plugin):
                 if url[1].startswith(f"https://{domain}/reel"):
                     canonical_urls.append(url[1].replace(domain, "www.instagram.com"))
                     continue
-            if url[1].startswith(f"https://vm.tiktok.com"):
-                canonical_urls.append(url[1])
+            for domain in self.config["tiktok_domains"]:
+                if url[1].startswith(f"https://{domain}"):
+                    canonical_urls.append(url[1].replace(domain, "vm.tiktok.com"))
             # Mastodon post links
             m = re.match(r"(https://.+\.[A-Za-z]+)/@[A-Za-z0-9_]+/([0-9]+)", url[1])
             if m is not None:
