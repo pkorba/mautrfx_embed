@@ -1,3 +1,5 @@
+import asyncio
+import mimetypes
 import re
 import time
 from asyncio import AbstractEventLoop
@@ -29,6 +31,7 @@ class Mastodon:
             self._parse_text,
             preview_raw["content"]
         )
+        content = await self._replace_emoji_codes(preview_raw["emojis"], content)
         videos, photos = await self._parse_media(preview_raw)
         return Post(
             text=content,
@@ -38,9 +41,12 @@ class Mastodon:
             reposts=await self.utils.parse_interaction(preview_raw["reblogs_count"]),
             likes=await self.utils.parse_interaction(preview_raw["favourites_count"]),
             views=None,
-            quotes=await self.utils.parse_interaction(preview_raw["quotes_count"]),
+            quotes=await self.utils.parse_interaction(preview_raw.get("quotes_count")),
             community_note=None,
-            author_name=preview_raw["account"]["display_name"],
+            author_name=await self._replace_emoji_codes(
+                preview_raw["account"]["emojis"],
+                preview_raw["account"]["display_name"]
+            ),
             author_screen_name=preview_raw["account"]["username"],
             author_url=preview_raw["account"]["url"],
             post_date=await self.utils.parse_date(preview_raw["created_at"]),
@@ -72,6 +78,10 @@ class Mastodon:
             self._parse_text,
             quote["quoted_status"]["content"]
         )
+        quote_text = await self._replace_emoji_codes(
+            quote["quoted_status"]["emojis"],
+            quote_text
+        )
         q_videos, q_photos = await self._parse_media(quote["quoted_status"])
         return Post(
                 text=quote_text,
@@ -81,9 +91,12 @@ class Mastodon:
                 reposts=None,
                 likes=None,
                 views=None,
-                quotes=await self.utils.parse_interaction(data["quotes_count"]),
+                quotes=None,
                 community_note=None,
-                author_name=quote["quoted_status"]["account"]["display_name"],
+                author_name=await self._replace_emoji_codes(
+                    quote["quoted_status"]["account"]["emojis"],
+                    quote["quoted_status"]["account"]["display_name"]
+                ),
                 author_url=quote["quoted_status"]["account"]["url"],
                 author_screen_name=quote["quoted_status"]["account"]["username"],
                 post_date=None,
@@ -231,3 +244,31 @@ class Mastodon:
         else:
             status = f"{s + 1} second{"s" if s > 0 else ""} left"
         return status
+
+    async def _replace_emoji_codes(self, emojis: list[Any], text: str) -> str:
+        """
+        Replace emoji shortcodes with emoji images
+        :param emojis: list of objects with emoji data
+        :param text: text that contains emoji shortcodes
+        :return: text with emoji shortcodes replaced with emoji images
+        """
+        for emoji in emojis:
+            image = await self.utils.download_image(emoji["url"])
+            if not image:
+                continue
+            mime = mimetypes.guess_type(emoji["url"])
+            if mime is None:
+                continue
+            mime = mime[0]
+            extension = mimetypes.guess_extension(mime)
+            image_mxc = await self.utils.upload_media(image, mime, f"emoji{extension}")
+            if not image_mxc:
+                continue
+            text = text.replace(
+                f":{emoji["shortcode"]}:",
+                f"<img src=\"{image_mxc}\" alt=\"{emoji["shortcode"]}\" height=\"24\" />"
+            )
+            # To prevent server from rejecting the upload
+            await asyncio.sleep(0.2)
+
+        return text

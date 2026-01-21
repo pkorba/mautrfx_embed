@@ -67,7 +67,7 @@ class Utilities:
             )
             return await response.read()
         except ClientError as e:
-            self.bot.log.error(f"Preparing image - connection failed: {url}: {e}")
+            self.bot.log.error(f"Downloading image - connection failed: {url}: {e}")
 
     async def get_preview(self, url: str) -> Any:
         """
@@ -158,41 +158,48 @@ class Utilities:
         :param nsfw: True if image needs blurring, False otherwise
         :return: a tuple with matrix mxc URL, width, and height of the thumbnail
         """
-        try:
-            # Download image from external source
-            if media.thumbnail_url:
-                url = media.thumbnail_url
-            elif media.filetype == "p" and media.url:
-                url = media.url
-            else:
-                return "", 0, 0
-
-            data = await self.download_image(url)
-            if not data:
-                return "", 0, 0
-
-            # Generate thumbnail
-            image_data, width, height = await self.bot.loop.run_in_executor(
-                None,
-                self._get_thumbnail,
-                (data, size, size, media.filetype != "p", nsfw)
-            )
-            if not image_data:
-                return "", 0, 0
-
-            # Upload image to Matrix server
-            mxc_uri = await self.bot.client.upload_media(
-                data=image_data,
-                mime_type="image/jpeg",
-                filename="thumbnail.jpg",
-                size=len(image_data))
-            return mxc_uri, width, height
-        except ClientError as e:
-            self.bot.log.error(f"Downloading image - connection failed: {e}")
+        # Download image from external source
+        if media.thumbnail_url:
+            url = media.thumbnail_url
+        elif media.filetype == "p" and media.url:
+            url = media.url
+        else:
             return "", 0, 0
+
+        data = await self.download_image(url)
+        if not data:
+            return "", 0, 0
+
+        # Generate thumbnail
+        image_data, width, height = await self.bot.loop.run_in_executor(
+            None,
+            self._get_thumbnail,
+            (data, size, size, media.filetype != "p", nsfw)
+        )
+        if not image_data:
+            return "", 0, 0
+
+        mxc_uri = await self.upload_media(image_data, "image/jpeg", "thumbnail.jpg")
+        return mxc_uri, width, height
+
+    async def upload_media(self, data: bytes, mime: str, name: str) -> str:
+        """
+        Upload image to Matrix server
+        :param data: image data
+        :param mime: image mimetype
+        :param name: image name
+        :return: MXC URL address to the image
+        """
+        try:
+            # Upload image to Matrix server
+            return await self.bot.client.upload_media(
+                data=data,
+                mime_type=mime,
+                filename=name,
+                size=len(data))
         except (ValueError, MatrixResponseError) as e:
             self.bot.log.error(f"Uploading image to Matrix server: {e}")
-            return "", 0, 0
+            return ""
 
     async def get_instagram_preview(self, url: str) -> str:
         """
