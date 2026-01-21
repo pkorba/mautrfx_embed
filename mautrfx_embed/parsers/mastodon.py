@@ -266,7 +266,7 @@ class Mastodon:
                 continue
             text = text.replace(
                 f":{emoji["shortcode"]}:",
-                f"<img src=\"{image_mxc}\" alt=\"{emoji["shortcode"]}\" height=\"24\" />"
+                f"<img src=\"{image_mxc}\" alt=\":{emoji["shortcode"]}:\" height=\"24\" />"
             )
             # To prevent server from rejecting the upload
             await asyncio.sleep(0.2)
