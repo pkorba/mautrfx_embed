@@ -209,7 +209,7 @@ class Mastodon:
             )
         return poll
 
-    async def _get_poll_status(expires_at: int) -> str:
+    async def _get_poll_status(self, expires_at: int) -> str:
         """
         Calculate time difference between current time and poll's expiration time
         :param expires_at: seconds since Epoch marking the end time when poll closes
