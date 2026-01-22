@@ -29,6 +29,7 @@ bluesky_domains:
   - "bsky.app"
   - "fxbsky.app"
   - "blacksky.community"
+  - "pinksky.app"
   - "skyview.social/?url=https://bsky.app"
   - "skyview.social/?url=bsky.app"
 instagram_domains:
