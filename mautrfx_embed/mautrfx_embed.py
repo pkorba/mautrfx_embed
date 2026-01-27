@@ -7,11 +7,15 @@ from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 
 from .formatters.blog import Blog
+from .formatters.forum import Forum
+from .formatters.sharedfmt import SharedFmt
 from .parsers.bsky import Bsky
 from .parsers.mastodon import Mastodon
 from .parsers.twitter import Twitter
-from .parsers.miscellaneous import Miscellaneous
-from .resources.datastructures import Post
+from .parsers.reddit import Reddit
+from .parsers.instagram import Instagram
+from .parsers.tiktok import Tiktok
+from .resources.datastructures import BlogPost, ForumPost
 from .resources.utils import Utilities
 
 
@@ -27,15 +31,20 @@ class Config(BaseProxyConfig):
         helper.copy("bluesky_domains")
         helper.copy("instagram_domains")
         helper.copy("tiktok_domains")
+        helper.copy("reddit_domains")
 
 
 class MautrFxEmbedBot(Plugin):
+    REDDIT_PATTERN = re.compile(
+        r"https://[A-Za-z0-9.]*?/r/[A-Za-z0-9]+/comments/([A-Za-z0-9].*?)/.*?/([A-Za-z0-9]+)?"
+    )
+    MASTODON_PATTERN = re.compile(r"(https://.+\.[A-Za-z]+)/@[A-Za-z0-9_]+/([0-9]+)")
+
     utils = None
     blog = None
-    mastodon = None
-    bsky = None
-    twitter = None
-    misc = None
+    forum = None
+    sharedfmt = None
+    parsers = None
 
     async def start(self) -> None:
         await super().start()
@@ -49,42 +58,44 @@ class MautrFxEmbedBot(Plugin):
             bot=self,
             files=files
         )
+        self.sharedfmt = SharedFmt(
+            utils=self.utils
+        )
         self.blog = Blog(
-            utils=self.utils
+            utils=self.utils,
+            fmt=self.sharedfmt
         )
-        self.mastodon = Mastodon(
-            loop=self.loop,
-            utils=self.utils
+        self.forum = Forum(
+            utils=self.utils,
+            fmt=self.sharedfmt
         )
-        self.bsky = Bsky(
-            loop=self.loop,
-            utils=self.utils
-        )
-        self.twitter = Twitter(
-            utils=self.utils
-        )
-        self.misc = Miscellaneous(
-            loop=self.loop
-        )
+        self.parsers = {
+            "mastodon": Mastodon(loop=self.loop, utils=self.utils),
+            "bsky": Bsky(loop=self.loop, utils=self.utils),
+            "twitter": Twitter(utils=self.utils),
+            "reddit": Reddit(utils=self.utils),
+            "instagram": Instagram(loop=self.loop),
+            "tiktok": Tiktok(loop=self.loop)
+        }
 
     @command.passive(r"(https?://\S+)", multiple=True)
     async def embed(self, evt: MessageEvent, matches: list[tuple[str, str]]) -> None:
         if evt.sender == self.client.mxid:
             return
-        canonical_urls = await self._get_canonical_urls(matches)
+        canonical_urls = await self._get_api_urls(matches)
         if not canonical_urls:
             return
         await evt.mark_read()
 
         previews = []
         for url in canonical_urls:
-            if url.startswith(("https://www.instagram.com/reel", "https://vm.tiktok.com")):
-                preview_raw = await self.utils.get_html_preview(url)
+            if url[0] in ("instagram", "tiktok"):
+                preview_raw = await self.utils.get_html_preview(url[1])
             else:
-                preview_raw = await self.utils.get_preview(url)
+                preview_raw = await self.utils.get_preview(url[1])
             if preview_raw:
                 try:
-                    preview = await self._parse_preview(preview_raw, url)
+                    preview = await self._parse_preview(preview_raw, url[0])
                     previews.append(preview)
                 except ValueError as e:
                     self.log.error(f"Error parsing preview: {e}")
@@ -92,113 +103,191 @@ class MautrFxEmbedBot(Plugin):
             content = await self._prepare_message(preview)
             await evt.respond(content)
 
-    async def _get_canonical_urls(self, urls: list[tuple[str, str]]) -> list[str]:
+    async def _get_api_urls(self, urls: list[tuple[str, str]]) -> list[tuple[str, str]]:
         """
         Extract canonical URLs from a list of URLs
         :param urls: list of URLs
         :return: list of canonical URLs
         """
         canonical_urls = []
-        for url in urls:
-            for domain in self.config["twitter_domains"]:
-                if url[1].startswith(f"https://{domain}"):
-                    canonical_urls.append(url[1].replace(domain, "api.fxtwitter.com"))
-                    continue
-            for domain in self.config["bluesky_domains"]:
-                if url[1].startswith(f"https://{domain}/profile"):
-                    new_url = (
-                        url[1]
-                        .replace(
-                            f"{domain}/profile",
-                            "api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=at:/"
-                        )
-                        .replace("/post/", "/app.bsky.feed.post/")
-                    )
-                    new_url += "&depth=0"
-                    canonical_urls.append(new_url)
-                    continue
-            for domain in self.config["instagram_domains"]:
-                if url[1].startswith(f"https://{domain}/reel"):
-                    canonical_urls.append(url[1].replace(domain, "www.instagram.com"))
-                    continue
-            for domain in self.config["tiktok_domains"]:
-                if url[1].startswith(f"https://{domain}"):
-                    canonical_urls.append(url[1].replace(domain, "vm.tiktok.com"))
-            # Mastodon post links
-            m = re.match(r"(https://.+\.[A-Za-z]+)/@[A-Za-z0-9_]+/([0-9]+)", url[1])
-            if m is not None:
-                new_url = m.groups()[0] + "/api/v1/statuses/" + m.groups()[1]
-                canonical_urls.append(new_url)
+        handlers = [
+            self._handle_twitter,
+            self._handle_bluesky,
+            self._handle_instagram,
+            self._handle_tiktok,
+            self._handle_reddit,
+            self._handle_mastodon
+        ]
+        for _, url in urls:
+            for handler in handlers:
+                result = await handler(url)
+                if result:
+                    canonical_urls.append(result)
+                    break
         return canonical_urls
 
-    async def _parse_preview(self, preview_raw: Any, url: str) -> Post:
-        if url.startswith("https://api.fxtwitter.com"):
-            return await self.twitter.parse_preview(preview_raw)
-        if url.startswith("https://api.bsky.app"):
-            return await self.bsky.parse_preview(preview_raw)
-        if url.startswith("https://www.instagram.com/reel"):
-            return await self.misc.parse_instagram_preview(preview_raw)
-        if url.startswith("https://vm.tiktok.com"):
-            return await self.misc.parse_tiktok_preview(preview_raw)
-        return await self.mastodon.parse_preview(preview_raw)
+    async def _handle_twitter(self, url: str) -> tuple[str, str] | None:
+        for domain in self.config["twitter_domains"]:
+            if url.startswith(f"https://{domain}"):
+                return "twitter", url.replace(domain, "api.fxtwitter.com")
+        return None
 
-    async def _prepare_message(self, preview: Post) -> TextMessageEventContent:
+    async def _handle_bluesky(self, url: str) -> tuple[str, str] | None:
+        for domain in self.config["bluesky_domains"]:
+            if url.startswith(f"https://{domain}/profile"):
+                new_url = (
+                    url
+                    .replace(
+                        f"{domain}/profile",
+                        "api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=at:/"
+                    )
+                    .replace("/post/", "/app.bsky.feed.post/")
+                )
+                return "bsky", f"{new_url}&depth=0"
+        return None
+
+    async def _handle_instagram(self, url: str) -> tuple[str, str] | None:
+        for domain in self.config["instagram_domains"]:
+            if url.startswith(f"https://{domain}/reel"):
+                return "instagram", url.replace(domain, "www.instagram.com")
+        return None
+
+    async def _handle_tiktok(self, url: str) -> tuple[str, str] | None:
+        for domain in self.config["tiktok_domains"]:
+            if url.startswith(f"https://{domain}"):
+                return "tiktok", url.replace(domain, "vm.tiktok.com")
+        return None
+
+    async def _handle_reddit(self, url: str) -> tuple[str, str] | None:
+        for domain in self.config["reddit_domains"]:
+            if url.startswith(f"https://{domain}"):
+                m = self.REDDIT_PATTERN.match(url)
+                if m is not None:
+                    if m.group(2) is not None:
+                        return "reddit", f"https://api.reddit.com/api/info/?id=t1_{m.group(2)}"
+                    return "reddit", f"https://api.reddit.com/api/info/?id=t3_{m.group(1)}"
+        return None
+
+    async def _handle_mastodon(self, url: str) -> tuple[str, str] | None:
+        m = self.MASTODON_PATTERN.match(url)
+        if m is not None:
+            return "mastodon", f"{m.group(1)}/api/v1/statuses/{m.group(2)}"
+        return None
+
+    async def _parse_preview(self, preview_raw: Any, service: str) -> BlogPost | ForumPost | None:
+        for key, parser in self.parsers.items():
+            if service == key:
+                return await parser.parse_preview(preview_raw)
+        return None
+
+    async def _prepare_message(self, data: Any) -> TextMessageEventContent:
+        if data.qtype in ["twitter", "bsky", "mastodon"]:
+            return await self._blog_message(data)
+        return await self._forum_message(data)
+
+    async def _blog_message(self, post: BlogPost) -> TextMessageEventContent:
         """
         Prepare preview message text for blog type of post
-        :param preview: Post object with data from API
+        :param post: BlogPost object with data from API
         :return: text message content
         """
-        await self.blog.tw_replace_urls(preview)
+        await self.blog.tw_replace_urls(post)
 
         html = ""
         body = ""
 
         # Author
-        html += await self.blog.get_author(preview)
-        body += await self.blog.get_author(preview, False)
+        html += await self.blog.get_author(post)
+        body += await self.blog.get_author(post, False)
 
         # Text
-        html += await self.blog.get_text(preview)
-        body += await self.blog.get_text(preview, False)
+        html += await self.blog.get_text(post)
+        body += await self.blog.get_text(post, False)
 
         # Translation
-        html += await self.blog.get_translation(preview)
-        body += await self.blog.get_translation(preview, False)
+        html += await self.blog.get_translation(post)
+        body += await self.blog.get_translation(post, False)
 
         # Poll
-        html += await self.blog.get_poll(preview)
-        body += await self.blog.get_poll(preview, False)
+        html += await self.blog.get_poll(post)
+        body += await self.blog.get_poll(post, False)
 
         # Multimedia previews only for HTML version
-        html += await self.blog.get_media_previews(preview)
+        html += await self.sharedfmt.get_media_previews(post.photos, post.videos, post.sensitive)
 
         # Multimedia list for clients that have problems displaying images/links
         # Videos
-        html += await self.blog.get_media_list(preview.videos, preview.sensitive)
-        body += await self.blog.get_media_list(preview.videos, preview.sensitive, False)
+        html += await self.sharedfmt.get_media_list(post.videos, post.sensitive)
+        body += await self.sharedfmt.get_media_list(post.videos, post.sensitive, False)
         # Photos
-        html += await self.blog.get_media_list(preview.photos, preview.sensitive)
-        body += await self.blog.get_media_list(preview.photos, preview.sensitive, False)
+        html += await self.sharedfmt.get_media_list(post.photos, post.sensitive)
+        body += await self.sharedfmt.get_media_list(post.photos, post.sensitive, False)
 
         # Quote
-        html += await self.blog.get_quote(preview.quote)
-        body += await self.blog.get_quote(preview.quote, False)
+        html += await self.blog.get_quote(post.quote)
+        body += await self.blog.get_quote(post.quote, False)
 
         # External link
-        html += await self.blog.get_external_link(preview.link)
-        body += await self.blog.get_external_link(preview.link, False)
+        html += await self.blog.get_external_link(post.link)
+        body += await self.blog.get_external_link(post.link, False)
 
         # Replies, retweets, likes, views
-        html += await self.blog.get_interactions(preview)
-        body += await self.blog.get_interactions(preview, False)
+        html += await self.blog.get_interactions(post)
+        body += await self.blog.get_interactions(post, False)
 
         # Community Note
-        html += await self.blog.get_community_note(preview.community_note)
-        body += await self.blog.get_community_note(preview.community_note, False)
+        html += await self.blog.get_community_note(post.community_note)
+        body += await self.blog.get_community_note(post.community_note, False)
 
         # Footer, date
-        html += await self.blog.get_footer(preview.name, preview.post_date)
-        body += await self.blog.get_footer(preview.name, preview.post_date, False)
+        html += await self.sharedfmt.get_footer(post.name, post.post_date)
+        body += await self.sharedfmt.get_footer(post.name, post.post_date, False)
+
+        html = f"<blockquote>{html}</blockquote>"
+
+        return TextMessageEventContent(
+            msgtype=MessageType.NOTICE,
+            format=Format.HTML,
+            body=body,
+            formatted_body=html
+        )
+
+    async def _forum_message(self, post: ForumPost) -> TextMessageEventContent:
+        """
+        Prepare preview message text for forum type of post
+        :param post: ForumPost object with data from API
+        :return: text message content
+        """
+        html = ""
+        body = ""
+
+        # Author
+        html += await self.forum.get_title(post)
+        body += await self.forum.get_title(post, False)
+
+        # Text
+        html += await self.forum.get_text(post)
+        body += await self.forum.get_text(post, False)
+
+        # Multimedia previews only for HTML version
+        if not post.spoiler:
+            html += await self.sharedfmt.get_media_previews(post.photos, post.videos, post.nsfw)
+
+        # Multimedia list for clients that have problems displaying images/links
+        # Videos
+        html += await self.sharedfmt.get_media_list(post.videos, post.nsfw)
+        body += await self.sharedfmt.get_media_list(post.videos, post.nsfw, False)
+        # Photos
+        html += await self.sharedfmt.get_media_list(post.photos, post.nsfw)
+        body += await self.sharedfmt.get_media_list(post.photos, post.nsfw, False)
+
+        # Replies, retweets, likes, views
+        html += await self.forum.get_interactions(post)
+        body += await self.forum.get_interactions(post, False)
+
+        # Footer, date
+        html += await self.sharedfmt.get_footer(post.name, post.post_date)
+        body += await self.sharedfmt.get_footer(post.name, post.post_date, False)
 
         html = f"<blockquote>{html}</blockquote>"
 

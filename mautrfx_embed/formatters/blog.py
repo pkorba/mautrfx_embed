@@ -1,16 +1,16 @@
-import asyncio
 import re
-from time import strftime, localtime
 
-from ..resources.datastructures import Post, Facet, Link
+from .sharedfmt import SharedFmt
+from ..resources.datastructures import BlogPost, Facet, Link
 from ..resources.utils import Utilities
 
 
 class Blog:
-    def __init__(self, utils: Utilities):
+    def __init__(self, utils: Utilities, fmt: SharedFmt):
         self.utils = utils
+        self.fmt = fmt
 
-    async def get_author(self, data: Post, is_html: bool = True) -> str:
+    async def get_author(self, data: BlogPost, is_html: bool = True) -> str:
         """
         Get message part that contains data about the author, including link to their profile
         author_display_name (@author_username)
@@ -21,18 +21,18 @@ class Blog:
         author_name = data.author_name if data.author_name else data.author_screen_name
         # HTML
         if is_html:
-            return f"<p>{await self._get_link(
+            return f"<p>{await self.fmt.get_link(
                 data.author_url,
                 f"<b>{author_name} (@{data.author_screen_name})</b>"
             )}</p>"
         # Markdown
-        return f"> {await self._get_link(
+        return f"> {await self.fmt.get_link(
             data.author_url,
             f"**{author_name}** **(@{data.author_screen_name})**",
             False
         )}   \n>  \n"
 
-    async def get_text(self, data: Post, is_html: bool = True) -> str:
+    async def get_text(self, data: BlogPost, is_html: bool = True) -> str:
         """
         Get message part that contains the blog post content. Strips Twitter posts from useless
         t.co links and replaces facets.
@@ -70,7 +70,7 @@ class Blog:
             text = data.markdown
         return f"> {text.replace('\n', '  \n> ')}  \n>  \n"
 
-    async def get_translation(self, data: Post, is_html: bool = True) -> str:
+    async def get_translation(self, data: BlogPost, is_html: bool = True) -> str:
         """
         Get message part that contains the translation of the post.
         :param data: Post data
@@ -93,7 +93,7 @@ class Blog:
             f"> > 📝 **Translated {src_lang}**  \n"
             f"> > {data.translation.replace('\n', '  \n> > ')}  \n>  \n")
 
-    async def get_poll(self, data: Post, is_html: bool = True) -> str:
+    async def get_poll(self, data: BlogPost, is_html: bool = True) -> str:
         """
         Get message part that contains poll
         :param data: Post data
@@ -131,87 +131,7 @@ class Blog:
             .replace(",", " ")
         )
 
-    async def get_media_previews(self, data: Post) -> str:
-        """
-        Get message part that contains media attachment thumbnails
-        :param data: Post data
-        :param is_html: True for HTML, False for Markdown
-        :return: formatted string that contains thumbnails and links to original media
-        """
-        if len(data.videos) + len(data.photos) == 0:
-            return ""
-        thumbs_data = []
-        for i, vid in enumerate(data.videos):
-            if not vid.thumbnail_url:
-                continue
-            name = f"Vid#{i + 1}" if vid.filetype == "v" else f"Audio#{i + 1}"
-            thumbs_data.append((vid, name))
-
-        for i, pic in enumerate(data.photos):
-            thumbs_data.append((pic, f"Pic#{i + 1}"))
-
-        thumbs = []
-        for thumb in thumbs_data:
-            image_mxc, width, height = await self.utils.get_matrix_image_url(
-                thumb[0],
-                self.utils.config["thumbnail_large"] if (len(data.videos) + len(data.photos) == 1)
-                else self.utils.config["thumbnail_small"],
-                data.sensitive,
-            )
-            await asyncio.sleep(0.2)
-            if image_mxc:
-                thumbs.append(f"{await self._get_link(
-                    thumb[0].url,
-                    await self._get_image(image_mxc, thumb[1], (width, height), True),
-                    True
-                )}")
-        # This can happen if the list contains only audio files without thumbnails
-        if not thumbs:
-            return ""
-        return f"<p>{" ".join(thumbs)}</p>"
-
-    async def get_media_list(self, media: list, nsfw: bool = False, is_html: bool = True) -> str:
-        """
-        Get message part with a list of media attachments. Also serves as a fallback mechanism
-        for client that are not able to display thumbnails
-        :param media: list of media attachments
-        :param nsfw: True if media contains NSFW content, False otherwise
-        :param is_html: True for HTML, False for Markdown
-        :return: formatted string with list of media attachments
-        """
-        if len(media) > 0:
-            media_formatted = []
-            is_audio = False
-            is_video = False
-            for i, med in enumerate(media):
-                if med.filetype == "v":
-                    short = "Vid"
-                    is_video = True
-                elif med.filetype == "a":
-                    short = "Audio"
-                    is_audio = True
-                else:
-                    short = "Pic"
-                media_formatted.append(await self._get_link(med.url, f"{short}#{i + 1}", is_html))
-
-            if is_audio and is_video:
-                title = "Audio/Videos"
-            elif is_audio:
-                title = "Audio"
-            elif is_video:
-                title = "Videos"
-            else:
-                title = "Photos"
-            if nsfw:
-                title += " (NSFW)"
-            # HTML
-            if is_html:
-                return f"<p><b>{title}: </b>{', '.join(media_formatted)}</p>"
-            # Markdown
-            return f"> **{title}:** {', '.join(media_formatted)}  \n>  \n"
-        return ""
-
-    async def get_quote(self, data: Post, is_html: bool = True) -> str:
+    async def get_quote(self, data: BlogPost, is_html: bool = True) -> str:
         """
         Get message part with quote post
         :param data: Quoted post data
@@ -228,9 +148,9 @@ class Blog:
         text += res if is_html else res.replace("> > ", "> > > ")
         if is_html:
             text += await self.get_media_previews(data)
-        res = await self.get_media_list(data.videos, data.sensitive, is_html)
+        res = await self.fmt.get_media_list(data.videos, data.sensitive, is_html)
         text += res if is_html else res.replace("> ", "> > ")
-        res = await self.get_media_list(data.photos, data.sensitive, is_html)
+        res = await self.fmt.get_media_list(data.photos, data.sensitive, is_html)
         text += res if is_html else res.replace("> ", "> > ")
         res = await self.get_external_link(data.link, is_html)
         text += res if is_html else res.replace("> > ", "> > > ")
@@ -240,7 +160,7 @@ class Blog:
         # Markdown
         return text
 
-    async def get_quote_author(self, data: Post, is_html: bool = True) -> str:
+    async def get_quote_author(self, data: BlogPost, is_html: bool = True) -> str:
         """
         Get message part with a link to quoted post and information about its author
         :param data: Quoted post data
@@ -250,21 +170,21 @@ class Blog:
         if not data.author_screen_name:
             return ""
 
-        link = await self._get_link(data.author_url, f"@{data.author_screen_name}", is_html)
+        link = await self.fmt.get_link(data.author_url, f"@{data.author_screen_name}", is_html)
         # HTML
         if is_html:
             return (
                 f"<p><b>"
-                f"{await self._get_link(data.url, "Quoting")} {data.author_name} ({link})"
+                f"{await self.fmt.get_link(data.url, "Quoting")} {data.author_name} ({link})"
                 f"</b></p>"
             )
         # Markdown
         return (
-            f"> > {await self._get_link(data.url, "**Quoting**", False)} "
+            f"> > {await self.fmt.get_link(data.url, "**Quoting**", False)} "
             f"{data.author_name} **({link})**  \n> >  \n"
         )
 
-    async def get_interactions(self, data: Post, is_html: bool = True) -> str:
+    async def get_interactions(self, data: BlogPost, is_html: bool = True) -> str:
         """
         Get message part with number of interactions with the post
         :param data: Post data
@@ -301,7 +221,7 @@ class Blog:
             return ""
 
         text = ""
-        link = await self._get_link(data.url, data.title, is_html)
+        link = await self.fmt.get_link(data.url, data.title, is_html)
         if is_html:
             # HTML
             text += f"<blockquote><p><b>{link}</b></p>"
@@ -339,27 +259,7 @@ class Blog:
             f"> > {note.replace('\n', '  \n> > ')}  \n>  \n"
         )
 
-    async def get_footer(self, name: str, post_date: int, is_html: bool = True) -> str:
-        """
-        Get message part with footer
-        :param name: service's name (e.g. Bluesky)
-        :param post_date: post date
-        :param is_html: True for HTML, False for Markdown
-        :return: formatted string with footer
-        """
-        date_html = ""
-        date_md = ""
-        if post_date:
-            date = strftime('%Y-%m-%d %H:%M', localtime(post_date))
-            date_html = f"<b> • {date}</b>"
-            date_md = f" **• {date}**"
-        # HTML
-        if is_html:
-            return f"<p><b>{name}</b>{date_html}</p>"
-        # Markdown
-        return f"> **{name}**{date_md}"
-
-    async def tw_replace_urls(self, data: Post) -> None:
+    async def tw_replace_urls(self, data: BlogPost) -> None:
         """
         If appropriate config values are set, replaces original URL with Nitter equivalents
         :param data: Preview object with data from API
@@ -383,43 +283,6 @@ class Blog:
         if data.quote:
             await self.tw_replace_urls(data.quote)
 
-    async def _get_image(
-        self,
-        src: str,
-        alt: str = "",
-        size: tuple[int, int] = (0, 0),
-        is_html: bool = True
-    ) -> str:
-        """
-        Get inline image
-        :param src: source url
-        :param alt: alternative text
-        :param size: tuple with width and height
-        :param is_html: True for HTML, False for Markdown
-        :return: formatted string with inline image
-        """
-        width = f"width=\"{size[0]}\" " if size[0] else ""
-        height = f"height=\"{size[1]}\" " if size[1] else ""
-        #HTML
-        if is_html:
-            return f"<img src=\"{src}\" alt=\"{alt}\" {width}{height}/>"
-        # Markdown
-        return f"![{alt}]({src})"
-
-    async def _get_link(self, url: str, text: str, is_html: bool = True) -> str:
-        """
-        Return a link as HTML or Markdown
-        :param url: address
-        :param text: displayed text
-        :param is_html: True for HTML, False for Markdown
-        :return: formatted string with a link
-        """
-        # HTML
-        if is_html:
-            return f"<a href=\"{url}\">{text}</a>"
-        # Markdown
-        return f"[{text}]({url})"
-
     async def _replace_facets(
             self,
             text: str,
@@ -441,7 +304,7 @@ class Blog:
             # Append normal text
             text_array.append(text[start:facet.byte_start])
             # Append text replacement from facet
-            link = await self._get_link(facet.url, facet.text, is_html)
+            link = await self.fmt.get_link(facet.url, facet.text, is_html)
             link = link.encode("utf-8") if qtype == "bsky" else link
             text_array.append(link)
             start = facet.byte_end

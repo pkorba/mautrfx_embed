@@ -1,6 +1,6 @@
 from typing import Any
 
-from ..resources.datastructures import Post, Media, Facet, Poll, Choice
+from ..resources.datastructures import BlogPost, Media, Facet, Poll, Choice
 from ..resources.utils import Utilities
 
 
@@ -8,7 +8,7 @@ class Twitter:
     def __init__(self, utils: Utilities):
         self.utils = utils
 
-    async def parse_preview(self, preview_raw: Any) -> Post:
+    async def parse_preview(self, preview_raw: Any) -> BlogPost:
         """
         Parse JSON data from FxTwitter API
         :param preview_raw: JSON data
@@ -20,7 +20,7 @@ class Twitter:
         preview_raw = preview_raw["tweet"]
         videos, photos = await self._parse_media(preview_raw)
         translation = preview_raw.get("translation")
-        return Post(
+        return BlogPost(
             text=preview_raw["raw_text"]["text"],
             url=None,
             markdown=None,
@@ -48,7 +48,7 @@ class Twitter:
             spoiler_text=None
         )
 
-    async def parse_quote(self, data: Any) -> Post | None:
+    async def parse_quote(self, data: Any) -> BlogPost | None:
         """
         Parse JSON quote data from FxTwitter API
         :param data: JSON data of a quote
@@ -58,7 +58,7 @@ class Twitter:
         if not quote:
             return None
         q_videos, q_photos = await self._parse_media(quote)
-        return Post(
+        return BlogPost(
                 text=quote["raw_text"]["text"],
                 url=quote["url"],
                 markdown=None,

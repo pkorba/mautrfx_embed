@@ -1,7 +1,7 @@
 from asyncio import AbstractEventLoop
 from typing import Any
 
-from ..resources.datastructures import Post, Media, Link, Facet
+from ..resources.datastructures import BlogPost, Media, Link, Facet
 from ..resources.utils import Utilities
 
 
@@ -10,7 +10,7 @@ class Bsky:
         self.loop = loop
         self.utils = utils
 
-    async def parse_preview(self, preview_raw: Any) -> Post:
+    async def parse_preview(self, preview_raw: Any) -> BlogPost:
         """
         Parse JSON data from Bsky API
         :param preview_raw: JSON data
@@ -27,14 +27,14 @@ class Bsky:
         photos: list[Media] = []
         videos: list[Media] = []
         link: Link = None
-        quote: Post = None
+        quote: BlogPost = None
         if media is not None:
             videos = await self._parse_videos(media)
             photos = await self._parse_images(media)
             link = await self._parse_external(media)
             quote = await self.parse_quote(media)
 
-        return Post(
+        return BlogPost(
             text=preview_raw["record"]["text"],
             url=None,
             markdown=None,
@@ -107,7 +107,7 @@ class Bsky:
             videos += await self._parse_videos(media["media"])
         return videos
 
-    async def parse_quote(self, media: Any) -> Post | None:
+    async def parse_quote(self, media: Any) -> BlogPost | None:
         """
         Parse JSON data about quote post from Bsky API
         :param media: JSON data
@@ -126,7 +126,7 @@ class Bsky:
                     videos = await self._parse_videos(elem)
                     link = await self._parse_external(elem)
 
-            return Post(
+            return BlogPost(
                 text=media["record"]["value"]["text"],
                 url=(
                     f"https://bsky.app/profile/{media["record"]["author"]["handle"]}/"

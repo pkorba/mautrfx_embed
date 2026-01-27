@@ -42,3 +42,12 @@ instagram_domains:
   - "uuinstagram.com"
 tiktok_domains:
   - "vm.tiktok.com"
+reddit_domains:
+  - "reddit.com"
+  - "www.reddit.com"
+  - "old.reddit.com"
+  - "new.reddit.com"
+  - "rxddit.com"
+  - "www.rxddit.com"
+  - "old.rxddit.com"
+  - "new.rxddit.com"

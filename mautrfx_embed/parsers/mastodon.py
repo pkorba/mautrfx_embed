@@ -7,7 +7,7 @@ from typing import Any
 
 import html2text
 
-from ..resources.datastructures import Post, Media, Link, Poll, Choice
+from ..resources.datastructures import BlogPost, Media, Link, Poll, Choice
 from ..resources.utils import Utilities
 
 
@@ -16,7 +16,7 @@ class Mastodon:
         self.loop = loop
         self.utils = utils
 
-    async def parse_preview(self, preview_raw: Any) -> Post:
+    async def parse_preview(self, preview_raw: Any) -> BlogPost:
         """
         Parse JSON data from Mastodon API
         :param preview_raw: JSON data
@@ -33,7 +33,7 @@ class Mastodon:
         )
         content = await self._replace_emoji_codes(preview_raw["emojis"], content)
         videos, photos = await self._parse_media(preview_raw)
-        return Post(
+        return BlogPost(
             text=content,
             url=None,
             markdown=md_text,
@@ -64,7 +64,7 @@ class Mastodon:
             spoiler_text=preview_raw["spoiler_text"]
         )
 
-    async def parse_quote(self, data: Any) -> Post | None:
+    async def parse_quote(self, data: Any) -> BlogPost | None:
         """
         Parse JSON data of a quote post from Mastodon API
         :param data: JSON data of a quote post
@@ -83,7 +83,7 @@ class Mastodon:
             quote_text
         )
         q_videos, q_photos = await self._parse_media(quote["quoted_status"])
-        return Post(
+        return BlogPost(
                 text=quote_text,
                 url=quote["quoted_status"]["url"],
                 markdown=md_quote_text,

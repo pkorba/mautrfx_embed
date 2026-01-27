@@ -42,7 +42,7 @@ class Poll:
 
 
 @dataclass
-class Post:
+class BlogPost:
     text: str
     url: str
     markdown: str
@@ -68,3 +68,26 @@ class Post:
     name: str
     sensitive: bool
     spoiler_text: str
+
+
+@dataclass
+class ForumPost:
+    text: str
+    markdown: str
+    flair: str
+    sub: str
+    title: str
+    score: str
+    upvote_ratio: int
+    upvotes: str
+    downvotes: str
+    post_date: int
+    nsfw: bool
+    spoiler: bool
+    author: str
+    url: str
+    comments: int
+    photos: list[Media]
+    videos: list[Media]
+    qtype: str
+    name: str
