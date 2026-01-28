@@ -93,6 +93,8 @@ class Reddit:
             for item in gallery:
                 image = previews[item["media_id"]]
                 mime = image["m"]
+                # Reddit returns incorrect mimetype for JPG images
+                mime = "image/jpeg" if mime == "image/jpg" else mime
                 ext = mimetypes.guess_extension(mime)
                 photo = None
                 # Choose the first thumbnail that fits user requirements
