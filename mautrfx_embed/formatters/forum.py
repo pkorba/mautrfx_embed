@@ -41,7 +41,9 @@ class Forum:
         if not data.text or data.spoiler:
             return ""
         if is_html:
-            return f"{data.text}"
+            if len(data.text) > self.utils.config["forum_max_length"]:
+                return f"<details><summary>Post content: </summary><br>{data.text}</details>"
+            return data.text
         return f"> {data.markdown.replace("\n", "\n> ")}  \n>  \n"
 
     async def get_interactions(self, data: ForumPost, is_html: bool = True) -> str:
