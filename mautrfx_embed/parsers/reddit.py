@@ -20,7 +20,7 @@ class Reddit:
 
             return ForumPost(
                 text=await self._parse_text(data.get("body_html", "")),
-                markdown=data["body"],
+                markdown=await self._parse_markdown(data["body"]),
                 flair=None,
                 sub=data["subreddit_name_prefixed"],
                 title="Comment permalink",
@@ -44,7 +44,7 @@ class Reddit:
         data = data["data"]["children"][0]["data"]
         return ForumPost(
             text=await self._parse_text(data.get("selftext_html", "")),
-            markdown=data["selftext"],
+            markdown=await self._parse_markdown(data["selftext"]),
             flair=data["link_flair_text"],
             sub=data["subreddit_name_prefixed"],
             title=data["title"],
@@ -67,8 +67,19 @@ class Reddit:
     async def _parse_text(self, text: str) -> str:
         if not text:
             return ""
+        # Remove comments
         text = text.replace("&lt;!-- SC_OFF --&gt;", "").replace("&lt;!-- SC_ON --&gt;", "")
+        # Fix spoilers
+        text = text.replace(
+            "&lt;span class=\"md-spoiler-text\"&gt;",
+            "&lt;span data-mx-spoiler&gt;"
+        )
         return html.unescape(text)
+
+    async def _parse_markdown(self, text: str) -> str:
+        if not text:
+            return ""
+        return text.replace("&gt;!", "||").replace("!&lt;", "||")
 
     async def _parse_photos(self, data: Any) -> list[Media]:
         photos: list[Media] = []
