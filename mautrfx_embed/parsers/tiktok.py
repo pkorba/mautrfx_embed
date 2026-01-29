@@ -59,5 +59,6 @@ class Tiktok:
             photos=[],
             videos=videos,
             qtype="tiktok",
-            name="🎞️ TikTok"
+            name="🎞️ TikTok",
+            is_link=False
         )

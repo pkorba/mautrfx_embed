@@ -91,3 +91,4 @@ class ForumPost:
     videos: list[Media]
     qtype: str
     name: str
+    is_link: bool

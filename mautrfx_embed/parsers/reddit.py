@@ -37,7 +37,8 @@ class Reddit:
                 photos=[],
                 videos=[],
                 qtype="reddit",
-                name="👽 Reddit"
+                name="👽 Reddit",
+                is_link=False
             )
 
         # Post
@@ -61,7 +62,8 @@ class Reddit:
             photos=await self._parse_photos(data),
             videos=await self._parse_videos(data),
             qtype="reddit",
-            name="👽 Reddit"
+            name="👽 Reddit",
+            is_link=data.get("post_hint") in ("link", "rich:video")
         )
 
     async def _parse_text(self, text: str) -> str:
@@ -83,10 +85,17 @@ class Reddit:
 
     async def _parse_photos(self, data: Any) -> list[Media]:
         photos: list[Media] = []
-        single = data.get("post_hint") == "image"
-        if single:
-            photo = await self._parse_preview(data)
-            photos.append(photo)
+        hint = data.get("post_hint")
+        if hint == "image":
+            photo = await self._parse_preview(data, "thumbnail_large")
+            if photo:
+                photos.append(photo)
+        elif hint in ("link", "rich:video"):
+            photo = await self._parse_preview(data, "thumbnail_small")
+            # Check if thumbnail_url exists because for this object
+            # thumbnail cannot be generated based on the main URL
+            if photo and photo.thumbnail_url:
+                photos.append(photo)
         elif data.get("gallery_data"):
             gallery = data["gallery_data"]["items"]
             previews = data["media_metadata"]
@@ -124,13 +133,15 @@ class Reddit:
                 photos.append(photo)
         return photos
 
-    async def _parse_preview(self, data: Any) -> Media:
+    async def _parse_preview(self, data: Any, size_type: str) -> Media | None:
         photo = None
+        if not data.get("preview"):
+            return None
         previews = data["preview"]["images"][0]["resolutions"]
         for preview in previews:
             if (
-                    preview["width"] > self.utils.config["thumbnail_large"]
-                    or preview["height"] > self.utils.config["thumbnail_large"]
+                    preview["width"] > self.utils.config[size_type]
+                    or preview["height"] > self.utils.config[size_type]
             ):
                 photo = Media(
                     width=preview["width"],
@@ -155,7 +166,7 @@ class Reddit:
         videos: list[Media] = []
         if not data["is_video"]:
             return videos
-        video = await self._parse_preview(data)
+        video = await self._parse_preview(data, "thumbnail_large")
         if video:
             video.url = self.utils.config["player"] + data["media"]["reddit_video"]["hls_url"]
             video.filetype = "v"

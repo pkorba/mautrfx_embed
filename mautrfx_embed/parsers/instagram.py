@@ -59,5 +59,6 @@ class Instagram:
             photos=[],
             videos=videos,
             qtype="instagram",
-            name="🖼️ Instagram"
+            name="🖼️ Instagram",
+            is_link=False
         )

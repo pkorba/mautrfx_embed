@@ -274,13 +274,15 @@ class MautrFxEmbedBot(Plugin):
         if not post.spoiler:
             html += await self.sharedfmt.get_media_previews(post.photos, post.videos, post.nsfw)
 
-        # Multimedia list for clients that have problems displaying images/links
-        # Videos
-        html += await self.sharedfmt.get_media_list(post.videos, post.nsfw)
-        body += await self.sharedfmt.get_media_list(post.videos, post.nsfw, False)
-        # Photos
-        html += await self.sharedfmt.get_media_list(post.photos, post.nsfw)
-        body += await self.sharedfmt.get_media_list(post.photos, post.nsfw, False)
+        if not post.is_link:
+            # Multimedia list for clients that have problems displaying images/links
+            # Should not be displayed for simple website thumbnails
+            # Videos
+            html += await self.sharedfmt.get_media_list(post.videos, post.nsfw)
+            body += await self.sharedfmt.get_media_list(post.videos, post.nsfw, False)
+            # Photos
+            html += await self.sharedfmt.get_media_list(post.photos, post.nsfw)
+            body += await self.sharedfmt.get_media_list(post.photos, post.nsfw, False)
 
         # Replies, retweets, likes, views
         html += await self.forum.get_interactions(post)
