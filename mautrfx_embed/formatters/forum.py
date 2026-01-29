@@ -14,13 +14,13 @@ class Forum:
         sub = ""
         if post.author:
             user = await self.fmt.get_link(
-                f"https://www.reddit.com/u/{post.author}",
+                post.author_url,
                 f"u/{post.author}",
                 is_html
             )
         if post.sub:
             sub = await self.fmt.get_link(
-                f"https://www.reddit.com/{post.sub}",
+                post.sub_url,
                 post.sub,
                 is_html
             )

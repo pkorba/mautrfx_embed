@@ -76,6 +76,7 @@ class ForumPost:
     markdown: str
     flair: str
     sub: str
+    sub_url: str
     title: str
     score: str
     upvote_ratio: int
@@ -85,6 +86,7 @@ class ForumPost:
     nsfw: bool
     spoiler: bool
     author: str
+    author_url: str
     url: str
     comments: int
     photos: list[Media]

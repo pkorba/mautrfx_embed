@@ -15,6 +15,7 @@ from .parsers.twitter import Twitter
 from .parsers.reddit import Reddit
 from .parsers.instagram import Instagram
 from .parsers.tiktok import Tiktok
+from .parsers.lemmy import Lemmy
 from .resources.datastructures import BlogPost, ForumPost
 from .resources.utils import Utilities
 
@@ -33,6 +34,7 @@ class Config(BaseProxyConfig):
         helper.copy("instagram_domains")
         helper.copy("tiktok_domains")
         helper.copy("reddit_domains")
+        helper.copy("lemmy_domains")
 
 
 class MautrFxEmbedBot(Plugin):
@@ -76,7 +78,8 @@ class MautrFxEmbedBot(Plugin):
             "twitter": Twitter(utils=self.utils),
             "reddit": Reddit(utils=self.utils),
             "instagram": Instagram(loop=self.loop),
-            "tiktok": Tiktok(loop=self.loop)
+            "tiktok": Tiktok(loop=self.loop),
+            "lemmy": Lemmy(utils=self.utils)
         }
 
     @command.passive(r"(https?://\S+)", multiple=True)
@@ -117,7 +120,8 @@ class MautrFxEmbedBot(Plugin):
             self._handle_instagram,
             self._handle_tiktok,
             self._handle_reddit,
-            self._handle_mastodon
+            self._handle_mastodon,
+            self._handle_lemmy
         ]
         for _, url in urls:
             for handler in handlers:
@@ -173,6 +177,15 @@ class MautrFxEmbedBot(Plugin):
         m = self.MASTODON_PATTERN.match(url)
         if m is not None:
             return "mastodon", f"{m.group(1)}/api/v1/statuses/{m.group(2)}"
+        return None
+
+    async def _handle_lemmy(self, url: str) -> tuple[str, str] | None:
+        for domain in self.config["lemmy_domains"]:
+            if url.startswith(f"https://{domain}/post"):
+                parameters_start = url.find("?")
+                if parameters_start != -1:
+                    url = url[:parameters_start]
+                return "lemmy", url.replace("/post/", "/api/v3/post?id=")
         return None
 
     async def _parse_preview(self, preview_raw: Any, service: str) -> BlogPost | ForumPost | None:

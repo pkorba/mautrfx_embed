@@ -147,7 +147,7 @@ class Blog:
         res = await self.get_poll(data, is_html)
         text += res if is_html else res.replace("> > ", "> > > ")
         if is_html:
-            text += await self.get_media_previews(data)
+            text += await self.fmt.get_media_previews(data.photos, data.videos, data.sensitive)
         res = await self.fmt.get_media_list(data.videos, data.sensitive, is_html)
         text += res if is_html else res.replace("> ", "> > ")
         res = await self.fmt.get_media_list(data.photos, data.sensitive, is_html)
