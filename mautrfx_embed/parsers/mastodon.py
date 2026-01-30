@@ -15,57 +15,56 @@ class Mastodon:
     def __init__(self, loop: AbstractEventLoop, utils: Utilities):
         self.loop = loop
         self.utils = utils
-        self.DOMAIN_PATTERN = re.compile(r"https://(www\.)?(.*?)/.*")
-        self.USELESS_PARAGRAPH = re.compile(r"<p\sclass=\"quote-inline\">.*?</p>")
-        self.INVISIBLE = re.compile(r"<span\sclass=\"invisible\">[^<>]*?</span>")
-        self.ELLIPSIS = re.compile(r"<span\sclass=\"ellipsis\">([^<>]*?)</span>")
+        self.INSTANCE_NAME = re.compile(r"https://(www\.)?(.*?)/.*")
+        self.QUOTE_PARAGRAPH = re.compile(r"<p\sclass=\"quote-inline\">.*?</p>")
+        self.INVISIBLE_SPAN = re.compile(r"<span\sclass=\"invisible\">[^<>]*?</span>")
+        self.ELLIPSIS_SPAN = re.compile(r"<span\sclass=\"ellipsis\">([^<>]*?)</span>")
 
-    async def parse_preview(self, preview_raw: Any) -> BlogPost:
+    async def parse_preview(self, data: Any) -> BlogPost:
         """
         Parse JSON data from Mastodon API
-        :param preview_raw: JSON data
+        :param data: JSON data
         :return: Post object
         """
-        error = preview_raw.get("error")
+        error = data.get("error")
         if error is not None:
             raise ValueError("Bad response")
 
-        content, md_text = await self.loop.run_in_executor(
-            None,
-            self._parse_text,
-            preview_raw["content"]
-        )
-        content = await self._replace_emoji_codes(preview_raw["emojis"], content)
-        videos, photos = await self._parse_media(preview_raw)
+        content = await self.loop.run_in_executor(None, self._parse_text, data["content"])
+        md_text = await self.loop.run_in_executor(None, self._parse_markdown, content)
+
+        content = await self._replace_emoji_codes(data["emojis"], content)
+        videos, photos = await self._parse_media(data)
+
         return BlogPost(
             text=content,
             url=None,
             markdown=md_text,
-            replies=await self.utils.parse_interaction(preview_raw["replies_count"]),
-            reposts=await self.utils.parse_interaction(preview_raw["reblogs_count"]),
-            likes=await self.utils.parse_interaction(preview_raw["favourites_count"]),
+            replies=await self.utils.parse_interaction(data["replies_count"]),
+            reposts=await self.utils.parse_interaction(data["reblogs_count"]),
+            likes=await self.utils.parse_interaction(data["favourites_count"]),
             views=None,
-            quotes=await self.utils.parse_interaction(preview_raw.get("quotes_count")),
+            quotes=await self.utils.parse_interaction(data.get("quotes_count")),
             community_note=None,
             author_name=await self._replace_emoji_codes(
-                preview_raw["account"]["emojis"],
-                preview_raw["account"]["display_name"]
+                data["account"]["emojis"],
+                data["account"]["display_name"]
             ),
-            author_screen_name=preview_raw["account"]["username"],
-            author_url=preview_raw["account"]["url"],
-            post_date=await self.utils.parse_date(preview_raw["created_at"]),
+            author_screen_name=data["account"]["username"],
+            author_url=data["account"]["url"],
+            post_date=await self.utils.parse_date(data["created_at"]),
             photos=photos,
             videos=videos,
             facets=[],
-            poll=await self._parse_poll(preview_raw),
-            link=await self._parse_link(preview_raw),
-            quote=await self.parse_quote(preview_raw),
+            poll=await self._parse_poll(data),
+            link=await self._parse_link(data),
+            quote=await self.parse_quote(data),
             translation=None,
             translation_lang=None,
             qtype="mastodon",
-            name=f"🐘 {self.DOMAIN_PATTERN.sub(r"\2", preview_raw["url"])}",
-            sensitive=preview_raw["sensitive"],
-            spoiler_text=preview_raw["spoiler_text"]
+            name=f"🐘 {self.INSTANCE_NAME.sub(r"\2", data["url"])}",
+            sensitive=data["sensitive"],
+            spoiler_text=data["spoiler_text"]
         )
 
     async def parse_quote(self, data: Any) -> BlogPost | None:
@@ -77,16 +76,19 @@ class Mastodon:
         quote = data.get("quote")
         if not quote:
             return None
-        quote_text, md_quote_text = await self.loop.run_in_executor(
+        quote_text = await self.loop.run_in_executor(
             None,
             self._parse_text,
             quote["quoted_status"]["content"]
         )
+        md_quote_text = await self.loop.run_in_executor(None, self._parse_markdown, quote_text)
+
         quote_text = await self._replace_emoji_codes(
             quote["quoted_status"]["emojis"],
             quote_text
         )
         q_videos, q_photos = await self._parse_media(quote["quoted_status"])
+
         return BlogPost(
                 text=quote_text,
                 url=quote["quoted_status"]["url"],
@@ -113,37 +115,38 @@ class Mastodon:
                 translation=None,
                 translation_lang=None,
                 qtype="mastodon",
-                name=f"🐘 {self.DOMAIN_PATTERN.sub(quote["quoted_status"]["url"])}",
+                name=f"🐘 {self.INSTANCE_NAME.sub(r"\2", quote["quoted_status"]["url"])}",
                 sensitive=quote["quoted_status"]["sensitive"],
                 spoiler_text=quote["quoted_status"]["spoiler_text"]
             )
 
-    def _parse_text(self, text: str) -> tuple[str, str]:
+    def _parse_text(self, text: str) -> str:
         """
         Remove needless HTML tags from the content of Mastodon post
         :param text: text content of a post
         :return: tuple of cleaned HTML text and Markdown version of the same text
         """
         if not text:
-            return "", ""
-
-        # HTML
+            return ""
         # Remove inline quote, it's redundant
-        content = self.USELESS_PARAGRAPH.sub("", text)
+        content = self.QUOTE_PARAGRAPH.sub("", text)
         # Remove invisible span
-        content = self.INVISIBLE.sub("", content)
+        content = self.INVISIBLE_SPAN.sub("", content)
         # Replace ellipsis span with an actual ellipsis
-        content = self.ELLIPSIS.sub(r"\1...", content)
+        content = self.ELLIPSIS_SPAN.sub(r"\1...", content)
         # Remove the outmost paragraph to prevent too much whitespace in some clients
         content = content.removeprefix("<p>")
         content = content.removesuffix("</p>")
+        return content
 
+    def _parse_markdown(self, text: str) -> str:
+        if not text:
+            return ""
         # Markdown
         text_maker = html2text.HTML2Text()
         text_maker.body_width = 65536
-        md_text = text_maker.handle(content)
-
-        return content, md_text
+        md_text = text_maker.handle(text)
+        return md_text
 
     async def _parse_media(self, data: Any) -> tuple[list, list]:
         """

@@ -12,11 +12,49 @@ class Lemmy:
     def __init__(self, loop: AbstractEventLoop, utils: Utilities):
         self.loop = loop
         self.utils = utils
-        self.SPOILER = re.compile(r":::\sspoiler\s(.*?)\n(.*?)\n:::", flags=re.I | re.DOTALL)
+        self.SPOILER_TAG = re.compile(r":::\sspoiler\s(.*?)\n(.*?)\n:::", flags=re.I | re.DOTALL)
+        self.INSTANCE_NAME = re.compile(r"https://(www\.)?(.*?)/.*")
+        self.EMPTY_LINK = re.compile(r"\[]\((.+?)\)")
 
     async def parse_preview(self, data: Any) -> ForumPost:
         if data.get("error"):
             raise ValueError("Bad response")
+
+        # Comment
+        if data.get("comment_view") is not None:
+            data = data["comment_view"]
+            return ForumPost(
+                text=await self.loop.run_in_executor(
+                    None,
+                    self._parse_text,
+                    data["comment"].get("content")
+                ),
+                markdown=await self.loop.run_in_executor(
+                    None,
+                    self._parse_markdown,
+                    data["comment"].get("content")
+                ),
+                flair=None,
+                sub=f"c/{data["community"]["name"]}",
+                sub_url=data["community"]["actor_id"],
+                title=data["post"]["name"],
+                score=None,
+                upvote_ratio=0,
+                upvotes=await self.utils.parse_interaction(data["counts"]["upvotes"]),
+                downvotes=await self.utils.parse_interaction(data["counts"]["downvotes"]),
+                post_date=await self.utils.parse_date(data["comment"]["published"]),
+                nsfw=data["post"]["nsfw"],
+                spoiler=False,
+                author=data["creator"]["name"],
+                author_url=data["creator"]["actor_id"],
+                url=data["comment"]["ap_id"],
+                comments=data["counts"]["child_count"],
+                photos=[],
+                videos=[],
+                qtype="lemmy",
+                name=f"🐹 {self.INSTANCE_NAME.sub( r"\2", data["post"]["ap_id"])}",
+                is_link="text/html" in data["post"].get("url_content_type", ""),
+            )
 
         # Post
         data = data["post_view"]
@@ -31,7 +69,7 @@ class Lemmy:
             sub=f"c/{data["community"]["name"]}",
             sub_url=data["community"]["actor_id"],
             title=data["post"]["name"],
-            score=await self.utils.parse_interaction(data["counts"]["score"]),
+            score=None,
             upvote_ratio=0,
             upvotes=await self.utils.parse_interaction(data["counts"]["upvotes"]),
             downvotes=await self.utils.parse_interaction(data["counts"]["downvotes"]),
@@ -48,15 +86,19 @@ class Lemmy:
             photos=await self._parse_photos(data),
             videos=await self._parse_videos(data),
             qtype="lemmy",
-            name=f"🐹 {re.sub(r"https://(www\.)?(.*?)/.*", r"\2", data["post"]["ap_id"])}",
+            name=f"🐹 {self.INSTANCE_NAME.sub( r"\2", data["post"]["ap_id"])}",
             is_link="text/html" in data["post"].get("url_content_type", ""),
         )
 
     def _parse_text(self, text: str) -> str:
         if not text:
             return ""
-        text = text.replace("![", "[")
-        text = self.SPOILER.sub(self._md_group, text)
+        # Don't try to display inline images and replace faulty newlines
+        text = text.replace("![", "[").replace("\\\n", "  \n")
+        # For links with no alt text use the URL because they're not visible otherwise
+        text = self.EMPTY_LINK.sub(r"[\1](\1)", text)
+        # Fix custom spoiler tags
+        text = self.SPOILER_TAG.sub(self._md_group, text)
         text = markdown.markdown(text, extensions=["tables", "fenced_code"], output_format="html")
         return text
 
@@ -75,8 +117,12 @@ class Lemmy:
     def _parse_markdown(self, text: str) -> str:
         if not text:
             return ""
-        text = self.SPOILER.sub(r"[\1] ||\2||", text)
-        text = text.replace("![", "[")
+        # Fix custom spoiler tags
+        text = self.SPOILER_TAG.sub(r"[\1] ||\2||", text)
+        # Don't try to display inline images and replace faulty newlines
+        text = text.replace("![", "[").replace("\\\n", "\n  ")
+        # For links with no alt text use the URL because they're not visible otherwise
+        text = self.EMPTY_LINK.sub(r"[\1](\1)", text)
         return text
 
     async def _parse_photos(self, data: Any) -> list[Media]:

@@ -34,14 +34,14 @@ class Config(BaseProxyConfig):
         helper.copy("instagram_domains")
         helper.copy("tiktok_domains")
         helper.copy("reddit_domains")
-        helper.copy("lemmy_domains")
 
 
 class MautrFxEmbedBot(Plugin):
-    REDDIT_PATTERN = re.compile(
+    REDDIT_URL = re.compile(
         r"https://[A-Za-z0-9.]*?/r/[A-Za-z0-9]+/comments/([A-Za-z0-9].*?)/.*?/([A-Za-z0-9]+)?"
     )
-    MASTODON_PATTERN = re.compile(r"(https://.+\.[A-Za-z]+)/@[A-Za-z0-9_]+/([0-9]+)")
+    MASTODON_URL = re.compile(r"(https://.+\.[A-Za-z]+)/@[A-Za-z0-9_]+/([0-9]+)")
+    LEMMY_URL = re.compile(r"(https://.+\.[A-Za-z]+)/post/(\d+)/?(\d*)")
 
     utils = None
     blog = None
@@ -166,7 +166,7 @@ class MautrFxEmbedBot(Plugin):
     async def _handle_reddit(self, url: str) -> tuple[str, str] | None:
         for domain in self.config["reddit_domains"]:
             if url.startswith(f"https://{domain}"):
-                m = self.REDDIT_PATTERN.match(url)
+                m = self.REDDIT_URL.match(url)
                 if m is not None:
                     if m.group(2) is not None:
                         return "reddit", f"https://api.reddit.com/api/info/?id=t1_{m.group(2)}"
@@ -174,18 +174,18 @@ class MautrFxEmbedBot(Plugin):
         return None
 
     async def _handle_mastodon(self, url: str) -> tuple[str, str] | None:
-        m = self.MASTODON_PATTERN.match(url)
+        m = self.MASTODON_URL.match(url)
         if m is not None:
             return "mastodon", f"{m.group(1)}/api/v1/statuses/{m.group(2)}"
         return None
 
     async def _handle_lemmy(self, url: str) -> tuple[str, str] | None:
-        for domain in self.config["lemmy_domains"]:
-            if url.startswith(f"https://{domain}/post"):
-                parameters_start = url.find("?")
-                if parameters_start != -1:
-                    url = url[:parameters_start]
-                return "lemmy", url.replace("/post/", "/api/v3/post?id=")
+        m = self.LEMMY_URL.match(url)
+        if m is not None:
+            if m.group(3):
+                return "lemmy", f"{m.group(1)}/api/v3/comment?id={m.group(3)}"
+            if m.group(2):
+                return "lemmy", f"{m.group(1)}/api/v3/post?id={m.group(2)}"
         return None
 
     async def _parse_preview(self, preview_raw: Any, service: str) -> BlogPost | ForumPost | None:
