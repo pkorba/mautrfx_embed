@@ -42,7 +42,7 @@ class Forum:
             return ""
         if is_html:
             if len(data.text) > self.utils.config["forum_max_length"]:
-                return f"<details><summary>Post content: </summary><br>{data.text}</details>"
+                return f"<details><summary><b>Post content:</b> </summary><br>{data.text}</details>"
             return data.text
         return f"> {data.markdown.replace("\n", "\n> ")}  \n>  \n"
 

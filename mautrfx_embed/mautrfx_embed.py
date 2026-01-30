@@ -285,7 +285,12 @@ class MautrFxEmbedBot(Plugin):
 
         # Multimedia previews only for HTML version
         if not post.spoiler:
-            html += await self.sharedfmt.get_media_previews(post.photos, post.videos, post.nsfw)
+            html += await self.sharedfmt.get_media_previews(
+                post.photos,
+                post.videos,
+                post.nsfw,
+                post.is_link
+            )
 
         if not post.is_link:
             # Multimedia list for clients that have problems displaying images/links

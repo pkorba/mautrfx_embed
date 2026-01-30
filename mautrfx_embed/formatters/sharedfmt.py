@@ -13,13 +13,15 @@ class SharedFmt:
             self,
             photos: list[Media],
             videos: list[Media],
-            sensitive: bool
+            sensitive: bool,
+            is_link: bool = False
     ) -> str:
         """
         Get message part that contains media attachment thumbnails
         :param sensitive: True if contains NSFW media
         :param videos: list of videos
         :param photos: list of photos
+        :param is_link: True if small thumbnail is requested
         :return: formatted string that contains thumbnails and links to original media
         """
         if len(videos) + len(photos) == 0:
@@ -38,8 +40,11 @@ class SharedFmt:
         for thumb in thumbs_data:
             image_mxc, width, height = await self.utils.get_matrix_image_url(
                 thumb[0],
-                self.utils.config["thumbnail_large"] if (len(videos) + len(photos) == 1)
-                else self.utils.config["thumbnail_small"],
+                (
+                    self.utils.config["thumbnail_large"]
+                    if (len(videos) + len(photos) == 1) and not is_link
+                    else self.utils.config["thumbnail_small"]
+                ),
                 sensitive,
             )
             await asyncio.sleep(0.2)
