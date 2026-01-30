@@ -4,45 +4,42 @@ from typing import Any
 from lxml import html
 
 from ..resources.datastructures import ForumPost, Media
+from ..resources.utils import Utilities
 
 
 class Instagram:
-    def __init__(self, loop: AbstractEventLoop):
+    def __init__(self, loop: AbstractEventLoop, utils: Utilities):
         self.loop = loop
+        self.utils = utils
 
-    async def parse_preview(self, preview_raw: Any) -> ForumPost:
+    async def parse_preview(self, data: Any) -> ForumPost:
         """
         Build a Post object for Instagram reels
-        :param preview_url: URL to video
+        :param data: Website content of canonical URL
         :return: Post object
         """
-        return await self.loop.run_in_executor(None, self._parse_instagram_preview, preview_raw)
+        link, desc, image = await self.loop.run_in_executor(None, self._parse_canonical_page, data)
+        if not link:
+            raise ValueError("Bad response - missing canonical URL")
 
-    def _parse_instagram_preview(self, data: Any) -> ForumPost:
-        page = html.fromstring(data)
-        if page is None:
-            raise ValueError("Bad response")
+        video_url = await self.utils.get_location_header(link.replace("instagram", "kkinstagram"))
+        # kkinstagram returns canonical URL if unsuccessful
+        if not video_url or "www.instagram.com/reel" in video_url:
+            raise ValueError("Bad response - missing video URL")
 
-        link = page.xpath("//link[@rel='canonical']/@href")
-        desc = page.xpath("//meta[@property='og:title']/@content")
-        image = page.xpath("//meta[@name='twitter:image']/@content")
-        video = page.xpath("//meta[@property='og:video']/@content")
-        video = video[0] if video is not None else None
-        if video is None:
-            raise ValueError("No video found")
         videos = [
             Media(
                 width=0,
                 height=0,
-                url=video,
-                thumbnail_url=image[0] if image is not None else None,
+                url=video_url,
+                thumbnail_url=image,
                 filetype="v"
             )
         ]
 
         return ForumPost(
-            text=f"<p>{desc[0].replace('\n', '<br>')}</p>" if desc is not None else "",
-            markdown=desc[0] if desc is not None else "",
+            text=f"<p>{desc.replace('\n', '<br>')}</p>" if desc else "",
+            markdown=desc,
             flair=None,
             sub=None,
             sub_url=None,
@@ -56,7 +53,7 @@ class Instagram:
             spoiler=False,
             author=None,
             author_url=None,
-            url=link[0] if link is not None else "",
+            url=link,
             comments=0,
             photos=[],
             videos=videos,
@@ -64,3 +61,16 @@ class Instagram:
             name="🖼️ Instagram",
             is_link=False
         )
+
+    def _parse_canonical_page(self, data: Any) -> tuple[str, str, str]:
+        page = html.fromstring(data)
+        if page is None:
+            raise ValueError("Bad response")
+
+        link = page.xpath("//link[@rel='canonical']/@href")
+        link = link[0] if link else ""
+        desc = page.xpath("//meta[@property='og:title']/@content")
+        desc = desc[0] if desc else ""
+        image = page.xpath("//meta[@name='twitter:image']/@content")
+        image = image[0] if image else ""
+        return link, desc, image

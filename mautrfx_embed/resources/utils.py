@@ -108,6 +108,30 @@ class Utilities:
             self.bot.log.error(f"Connection failed: {e}")
             return ""
 
+    async def get_location_header(self, url: str) -> str:
+        """
+        Get HTML webpage source.
+        :param url: source URL
+        :return: text content of the response
+        """
+        headers = {"User-Agent": "WhatsApp/2"}
+        timeout = ClientTimeout(total=20)
+        try:
+            response = await self.bot.http.get(
+                url,
+                headers=headers,
+                timeout=timeout,
+                raise_for_status=True,
+                allow_redirects=False
+            )
+            return response.headers["location"]
+        except ClientError as e:
+            self.bot.log.error(f"Connection failed: {e}")
+            return ""
+        except KeyError as e:
+            self.bot.log.error(f"Missing 'location' header: {e}")
+            return ""
+
     def _get_thumbnail(self, image: tuple[bytes, int, int, bool, bool]) -> tuple[bytes, int, int]:
         """
         Convert original thumbnail into 100x100 one

@@ -77,7 +77,7 @@ class MautrFxEmbedBot(Plugin):
             "bsky": Bsky(loop=self.loop, utils=self.utils),
             "twitter": Twitter(utils=self.utils),
             "reddit": Reddit(utils=self.utils),
-            "instagram": Instagram(loop=self.loop),
+            "instagram": Instagram(loop=self.loop, utils=self.utils),
             "tiktok": Tiktok(loop=self.loop),
             "lemmy": Lemmy(loop=self.loop, utils=self.utils)
         }
