@@ -1,13 +1,18 @@
 import re
+from asyncio import AbstractEventLoop
 from typing import Any
+
+import markdown
 
 from ..resources.datastructures import ForumPost, Media
 from ..resources.utils import Utilities
 
 
 class Lemmy:
-    def __init__(self, utils: Utilities):
+    def __init__(self, loop: AbstractEventLoop, utils: Utilities):
+        self.loop = loop
         self.utils = utils
+        self.SPOILER = re.compile(r":::\sspoiler\s(.*?)\n(.*?)\n:::", flags=re.I | re.DOTALL)
 
     async def parse_preview(self, data: Any) -> ForumPost:
         if data.get("error"):
@@ -16,8 +21,12 @@ class Lemmy:
         # Post
         data = data["post_view"]
         return ForumPost(
-            text=data["post"].get("body"),
-            markdown=data["post"].get("body"),
+            text=await self.loop.run_in_executor(None, self._parse_text, data["post"].get("body")),
+            markdown=await self.loop.run_in_executor(
+                None,
+                self._parse_markdown,
+                data["post"].get("body")
+            ),
             flair=None,
             sub=f"c/{data["community"]["name"]}",
             sub_url=data["community"]["actor_id"],
@@ -43,13 +52,32 @@ class Lemmy:
             is_link="text/html" in data["post"].get("url_content_type", ""),
         )
 
-    async def _parse_text(self, text: str) -> str:
-        pass
-
-    async def _parse_markdown(self, text: str) -> str:
+    def _parse_text(self, text: str) -> str:
         if not text:
             return ""
-        return text.replace("&gt;!", "||").replace("!&lt;", "||")
+        text = text.replace("![", "[")
+        text = self.SPOILER.sub(self._md_group, text)
+        text = markdown.markdown(text, extensions=["tables", "fenced_code"], output_format="html")
+        return text
+
+    def _md_group(self, match) -> str:
+        return (
+            "<details>"
+            f"<summary>{match.group(1)} </summary>"
+            f"{markdown.markdown(
+                match.group(2),
+                extensions=['tables', 'fenced_code'],
+                output_format='html'
+            )}"
+            "</details>"
+        )
+
+    def _parse_markdown(self, text: str) -> str:
+        if not text:
+            return ""
+        text = self.SPOILER.sub(r"[\1] ||\2||", text)
+        text = text.replace("![", "[")
+        return text
 
     async def _parse_photos(self, data: Any) -> list[Media]:
         photos: list[Media] = []

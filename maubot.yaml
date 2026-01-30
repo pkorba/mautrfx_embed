@@ -9,6 +9,7 @@ dependencies:
   - pillow >= 11.3.0
   - html2text >= 2025.4.15
   - lxml >= 5.4.0
+  - markdown >= 3.10.1
 main_class: MautrFxEmbedBot
 config: true
 extra-files:

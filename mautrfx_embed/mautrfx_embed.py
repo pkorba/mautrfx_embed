@@ -79,7 +79,7 @@ class MautrFxEmbedBot(Plugin):
             "reddit": Reddit(utils=self.utils),
             "instagram": Instagram(loop=self.loop),
             "tiktok": Tiktok(loop=self.loop),
-            "lemmy": Lemmy(utils=self.utils)
+            "lemmy": Lemmy(loop=self.loop, utils=self.utils)
         }
 
     @command.passive(r"(https?://\S+)", multiple=True)

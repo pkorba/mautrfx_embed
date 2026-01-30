@@ -15,6 +15,10 @@ class Mastodon:
     def __init__(self, loop: AbstractEventLoop, utils: Utilities):
         self.loop = loop
         self.utils = utils
+        self.DOMAIN_PATTERN = re.compile(r"https://(www\.)?(.*?)/.*")
+        self.USELESS_PARAGRAPH = re.compile(r"<p\sclass=\"quote-inline\">.*?</p>")
+        self.INVISIBLE = re.compile(r"<span\sclass=\"invisible\">[^<>]*?</span>")
+        self.ELLIPSIS = re.compile(r"<span\sclass=\"ellipsis\">([^<>]*?)</span>")
 
     async def parse_preview(self, preview_raw: Any) -> BlogPost:
         """
@@ -59,7 +63,7 @@ class Mastodon:
             translation=None,
             translation_lang=None,
             qtype="mastodon",
-            name=f"🐘 {re.sub(r"https://(www\.)?(.*?)/.*", r"\2", preview_raw["url"])}",
+            name=f"🐘 {self.DOMAIN_PATTERN.sub(r"\2", preview_raw["url"])}",
             sensitive=preview_raw["sensitive"],
             spoiler_text=preview_raw["spoiler_text"]
         )
@@ -109,9 +113,7 @@ class Mastodon:
                 translation=None,
                 translation_lang=None,
                 qtype="mastodon",
-                name=f"🐘 {re.sub(
-                    r"https://(www\.)?(.*?)/.*", r"\2", quote["quoted_status"]["url"]
-                )}",
+                name=f"🐘 {self.DOMAIN_PATTERN.sub(quote["quoted_status"]["url"])}",
                 sensitive=quote["quoted_status"]["sensitive"],
                 spoiler_text=quote["quoted_status"]["spoiler_text"]
             )
@@ -127,11 +129,11 @@ class Mastodon:
 
         # HTML
         # Remove inline quote, it's redundant
-        content = re.sub(r"<p\sclass=\"quote-inline\">.*?</p>", "", text)
+        content = self.USELESS_PARAGRAPH.sub("", text)
         # Remove invisible span
-        content = re.sub(r"<span\sclass=\"invisible\">[^<>]*?</span>", "", content)
+        content = self.INVISIBLE.sub("", content)
         # Replace ellipsis span with an actual ellipsis
-        content = re.sub(r"<span\sclass=\"ellipsis\">([^<>]*?)</span>", r"\1...", content)
+        content = self.ELLIPSIS.sub(r"\1...", content)
         # Remove the outmost paragraph to prevent too much whitespace in some clients
         content = content.removeprefix("<p>")
         content = content.removesuffix("</p>")
