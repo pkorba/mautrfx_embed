@@ -38,7 +38,7 @@ class Config(BaseProxyConfig):
 
 class MautrFxEmbedBot(Plugin):
     REDDIT_URL = re.compile(
-        r"https://[A-Za-z0-9.]*?/r/[A-Za-z0-9]+/comments/([A-Za-z0-9].*?)/.*?/([A-Za-z0-9]+)?"
+        r"https://.+\.[A-Za-z]+/r/[A-Za-z0-9_]+/comments/([A-Za-z0-9].*?)/.*?/([A-Za-z0-9]+)?"
     )
     MASTODON_URL = re.compile(r"(https://.+\.[A-Za-z]+)/@[A-Za-z0-9_]+/([0-9]+)")
     LEMMY_URL = re.compile(r"(https://.+\.[A-Za-z]+)/post/(\d+)/?(\d*)")
