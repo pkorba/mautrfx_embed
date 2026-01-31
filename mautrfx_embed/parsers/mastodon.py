@@ -15,7 +15,7 @@ class Mastodon:
     def __init__(self, loop: AbstractEventLoop, utils: Utilities):
         self.loop = loop
         self.utils = utils
-        self.INSTANCE_NAME = re.compile(r"https://(www\.)?(.*?)/.*")
+        self.INSTANCE_NAME = re.compile(r"https://(www\.)?(?P<base_url>.+?)/.*")
         self.QUOTE_PARAGRAPH = re.compile(r"<p\sclass=\"quote-inline\">.*?</p>")
         self.INVISIBLE_SPAN = re.compile(r"<span\sclass=\"invisible\">[^<>]*?</span>")
         self.ELLIPSIS_SPAN = re.compile(r"<span\sclass=\"ellipsis\">([^<>]*?)</span>")
@@ -62,7 +62,7 @@ class Mastodon:
             translation=None,
             translation_lang=None,
             qtype="mastodon",
-            name=f"🐘 {self.INSTANCE_NAME.sub(r"\2", data["url"])}",
+            name=f"🐘 {self.INSTANCE_NAME.sub(r"\g<base_url>", data["url"])}",
             sensitive=data["sensitive"],
             spoiler_text=data["spoiler_text"]
         )
@@ -115,7 +115,7 @@ class Mastodon:
                 translation=None,
                 translation_lang=None,
                 qtype="mastodon",
-                name=f"🐘 {self.INSTANCE_NAME.sub(r"\2", quote["quoted_status"]["url"])}",
+                name=f"🐘 {self.INSTANCE_NAME.sub(r"\g<base_url>", quote["quoted_status"]["url"])}",
                 sensitive=quote["quoted_status"]["sensitive"],
                 spoiler_text=quote["quoted_status"]["spoiler_text"]
             )

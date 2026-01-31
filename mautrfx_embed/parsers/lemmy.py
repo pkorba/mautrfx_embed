@@ -13,8 +13,9 @@ class Lemmy:
         self.loop = loop
         self.utils = utils
         self.SPOILER_TAG = re.compile(r":::\sspoiler\s(.*?)\n(.*?)\n:::", flags=re.I | re.DOTALL)
-        self.INSTANCE_NAME = re.compile(r"https://(www\.)?(.*?)/.*")
+        self.INSTANCE_NAME = re.compile(r"https://(www\.)?(?P<base_url>.+?)/.*")
         self.EMPTY_LINK = re.compile(r"\[]\((.+?)\)")
+        self.FLAIR_TITLE = re.compile(r"^\[(?P<flair>[A-Za-z0-9\s]+?)]\s?(?P<title>.*)")
 
     async def parse_preview(self, data: Any) -> ForumPost:
         if data.get("error"):
@@ -52,12 +53,13 @@ class Lemmy:
                 photos=[],
                 videos=[],
                 qtype="lemmy",
-                name=f"🐹 {self.INSTANCE_NAME.sub( r"\2", data["post"]["ap_id"])}",
+                name=f"🐹 {self.INSTANCE_NAME.sub(r"\g<base_url>", data["post"]["ap_id"])}",
                 is_link="text/html" in data["post"].get("url_content_type", ""),
             )
 
         # Post
         data = data["post_view"]
+        title, flair = await self._parse_title(data["post"]["name"])
         return ForumPost(
             text=await self.loop.run_in_executor(None, self._parse_text, data["post"].get("body")),
             markdown=await self.loop.run_in_executor(
@@ -65,10 +67,10 @@ class Lemmy:
                 self._parse_markdown,
                 data["post"].get("body")
             ),
-            flair=None,
+            flair=flair,
             sub=f"c/{data["community"]["name"]}",
             sub_url=data["community"]["actor_id"],
-            title=data["post"]["name"],
+            title=title,
             score=None,
             upvote_ratio=0,
             upvotes=await self.utils.parse_interaction(data["counts"]["upvotes"]),
@@ -86,15 +88,23 @@ class Lemmy:
             photos=await self._parse_photos(data),
             videos=await self._parse_videos(data),
             qtype="lemmy",
-            name=f"🐹 {self.INSTANCE_NAME.sub( r"\2", data["post"]["ap_id"])}",
+            name=f"🐹 {self.INSTANCE_NAME.sub(r"\g<base_url>", data["post"]["ap_id"])}",
             is_link="text/html" in data["post"].get("url_content_type", ""),
         )
+
+    async def _parse_title(self, title: str) -> tuple[str, str]:
+        flair = ""
+        m_title = self.FLAIR_TITLE.match(title)
+        if m_title:
+            flair = m_title.group("flair")
+            title = m_title.group("title")
+        return title, flair
 
     def _parse_text(self, text: str) -> str:
         if not text:
             return ""
         # Don't try to display inline images and replace faulty newlines
-        text = text.replace("![", "[").replace("\\\n", "  \n")
+        text = text.replace("![", "[").replace("\\", "").replace("\n", "  \n")
         # For links with no alt text use the URL because they're not visible otherwise
         text = self.EMPTY_LINK.sub(r"[\1](\1)", text)
         # Fix custom spoiler tags
@@ -120,7 +130,7 @@ class Lemmy:
         # Fix custom spoiler tags
         text = self.SPOILER_TAG.sub(r"[\1] ||\2||", text)
         # Don't try to display inline images and replace faulty newlines
-        text = text.replace("![", "[").replace("\\\n", "\n  ")
+        text = text.replace("![", "[").replace("\\", "").replace("\n", "  \n")
         # For links with no alt text use the URL because they're not visible otherwise
         text = self.EMPTY_LINK.sub(r"[\1](\1)", text)
         return text

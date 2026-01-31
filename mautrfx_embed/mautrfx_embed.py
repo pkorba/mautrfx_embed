@@ -38,10 +38,15 @@ class Config(BaseProxyConfig):
 
 class MautrFxEmbedBot(Plugin):
     REDDIT_URL = re.compile(
-        r"https://.+\.[A-Za-z]+/r/[A-Za-z0-9_]+/comments/([A-Za-z0-9].*?)/.*?/([A-Za-z0-9]+)?"
+        r"https://.+?\.[A-Za-z]+(/r/[A-Za-z0-9_.]+)?(/comments)?/(?P<post_id>[A-Za-z0-9]+)"
+        r"(/.*?/(?P<comment_id>[A-Za-z0-9]+))?"
     )
-    MASTODON_URL = re.compile(r"(https://.+\.[A-Za-z]+)/@[A-Za-z0-9_]+/([0-9]+)")
-    LEMMY_URL = re.compile(r"(https://.+\.[A-Za-z]+)/post/(\d+)/?(\d*)")
+    MASTODON_URL = re.compile(
+        r"(?P<base_url>https://.+?\.[A-Za-z]+)/@[A-Za-z0-9_]+/(?P<status_id>[0-9]+)"
+    )
+    LEMMY_URL = re.compile(
+        r"(?P<base_url>https://.+?\.[A-Za-z]+)/post/(?P<post_id>\d+)/?(?P<comment_id>\d+)?"
+    )
 
     utils = None
     blog = None
@@ -86,23 +91,21 @@ class MautrFxEmbedBot(Plugin):
     async def embed(self, evt: MessageEvent, matches: list[tuple[str, str]]) -> None:
         if evt.sender == self.client.mxid:
             return
-        canonical_urls = await self._get_api_urls(matches)
-        if not canonical_urls:
+        api_urls = await self._get_api_urls(matches)
+        if not api_urls:
             return
         await evt.mark_read()
 
         previews = []
-        for url in canonical_urls:
+        for url in api_urls:
             if url[0] in ("instagram", "tiktok"):
                 preview_raw = await self.utils.get_html_preview(url[1])
             else:
                 preview_raw = await self.utils.get_preview(url[1])
             if preview_raw:
-                try:
-                    preview = await self._parse_preview(preview_raw, url[0])
+                preview = await self._parse_preview(preview_raw, url[0])
+                if preview:
                     previews.append(preview)
-                except ValueError as e:
-                    self.log.error(f"Error parsing preview: {e}")
         for preview in previews:
             content = await self._prepare_message(preview)
             await evt.respond(content)
@@ -113,7 +116,7 @@ class MautrFxEmbedBot(Plugin):
         :param urls: list of URLs
         :return: list of canonical URLs
         """
-        canonical_urls = []
+        api_urls = []
         handlers = [
             self._handle_twitter,
             self._handle_bluesky,
@@ -127,9 +130,9 @@ class MautrFxEmbedBot(Plugin):
             for handler in handlers:
                 result = await handler(url)
                 if result:
-                    canonical_urls.append(result)
+                    api_urls.append(result)
                     break
-        return canonical_urls
+        return api_urls
 
     async def _handle_twitter(self, url: str) -> tuple[str, str] | None:
         for domain in self.config["twitter_domains"]:
@@ -164,34 +167,39 @@ class MautrFxEmbedBot(Plugin):
         return None
 
     async def _handle_reddit(self, url: str) -> tuple[str, str] | None:
+        comment_url = "https://api.reddit.com/api/info/?id=t1_"
+        post_url = "https://api.reddit.com/api/info/?id=t3_"
         for domain in self.config["reddit_domains"]:
             if url.startswith(f"https://{domain}"):
                 m = self.REDDIT_URL.match(url)
                 if m is not None:
-                    if m.group(2) is not None:
-                        return "reddit", f"https://api.reddit.com/api/info/?id=t1_{m.group(2)}"
-                    return "reddit", f"https://api.reddit.com/api/info/?id=t3_{m.group(1)}"
+                    if m.group("comment_id") is not None:
+                        return "reddit", f"{comment_url}{m.group("comment_id")}"
+                    return "reddit", f"{post_url}{m.group("post_id")}"
         return None
 
     async def _handle_mastodon(self, url: str) -> tuple[str, str] | None:
         m = self.MASTODON_URL.match(url)
         if m is not None:
-            return "mastodon", f"{m.group(1)}/api/v1/statuses/{m.group(2)}"
+            return "mastodon", f"{m.group("base_url")}/api/v1/statuses/{m.group("status_id")}"
         return None
 
     async def _handle_lemmy(self, url: str) -> tuple[str, str] | None:
         m = self.LEMMY_URL.match(url)
         if m is not None:
-            if m.group(3):
-                return "lemmy", f"{m.group(1)}/api/v3/comment?id={m.group(3)}"
-            if m.group(2):
-                return "lemmy", f"{m.group(1)}/api/v3/post?id={m.group(2)}"
+            if m.group("comment_id"):
+                return "lemmy", f"{m.group("base_url")}/api/v3/comment?id={m.group("comment_id")}"
+            if m.group("post_id"):
+                return "lemmy", f"{m.group("base_url")}/api/v3/post?id={m.group("post_id")}"
         return None
 
     async def _parse_preview(self, preview_raw: Any, service: str) -> BlogPost | ForumPost | None:
         for key, parser in self.parsers.items():
             if service == key:
-                return await parser.parse_preview(preview_raw)
+                try:
+                    return await parser.parse_preview(preview_raw)
+                except (KeyError, ValueError) as e:
+                    self.log.error(f"Error parsing {key} API response {e}")
         return None
 
     async def _prepare_message(self, data: Any) -> TextMessageEventContent:
