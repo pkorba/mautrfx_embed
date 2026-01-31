@@ -3,7 +3,7 @@ nitter_url: "nitter.net"
 player: "https://korba.neocities.org/player?url="
 show_nsfw: false
 thumbnail_large: 300
-thumbnail_small: 100
+thumbnail_small: 120
 forum_max_length: 1000
 twitter_domains:
   - "x.com"
