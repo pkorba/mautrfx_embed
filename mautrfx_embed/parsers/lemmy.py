@@ -46,14 +46,14 @@ class Lemmy:
                 post_date=await self.utils.parse_date(data["comment"]["published"]),
                 nsfw=data["post"]["nsfw"],
                 spoiler=False,
-                author=data["creator"]["name"],
+                author=await self._parse_author(data["creator"], data["community"]),
                 author_url=data["creator"]["actor_id"],
                 url=data["comment"]["ap_id"],
                 comments=data["counts"]["child_count"],
                 photos=[],
                 videos=[],
                 qtype="lemmy",
-                name=f"🐹 {self.INSTANCE_NAME.sub(r"\g<base_url>", data["post"]["ap_id"])}",
+                name=f"🐹 {self.INSTANCE_NAME.sub(r"\g<base_url>", data["community"]["actor_id"])}",
                 is_link="text/html" in data["post"].get("url_content_type", ""),
             )
 
@@ -78,7 +78,7 @@ class Lemmy:
             post_date=await self.utils.parse_date(data["post"]["published"]),
             nsfw=data["post"]["nsfw"],
             spoiler=False,
-            author=data["creator"]["name"],
+            author=await self._parse_author(data["creator"], data["community"]),
             author_url=data["creator"]["actor_id"],
             url=(
                 data["post"]["url"] if data["post"].get("url") is not None
@@ -88,9 +88,15 @@ class Lemmy:
             photos=await self._parse_photos(data),
             videos=await self._parse_videos(data),
             qtype="lemmy",
-            name=f"🐹 {self.INSTANCE_NAME.sub(r"\g<base_url>", data["post"]["ap_id"])}",
+            name=f"🐹 {self.INSTANCE_NAME.sub(r"\g<base_url>", data["community"]["actor_id"])}",
             is_link="text/html" in data["post"].get("url_content_type", ""),
         )
+
+    async def _parse_author(self, creator: Any, community: Any) -> str:
+        community_url = self.INSTANCE_NAME.sub(r"\g<base_url>", community["actor_id"])
+        creator_url = self.INSTANCE_NAME.sub(r"\g<base_url>", creator["actor_id"])
+        base_url = "" if community_url == creator_url else f"@{creator_url}"
+        return f"{creator["name"]}{base_url}"
 
     async def _parse_title(self, title: str) -> tuple[str, str]:
         flair = ""

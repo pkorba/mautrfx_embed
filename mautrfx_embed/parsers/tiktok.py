@@ -27,8 +27,8 @@ class Tiktok:
         desc = page.xpath("//meta[@property='og:description']/@content")
         image = page.xpath("//meta[@property='og:image']/@content")
         video = page.xpath("//meta[@name='lark:url:video_iframe_url']/@content")
-        video = video[0] if video is not None else None
-        if video is None:
+        video = video[0] if video else None
+        if not video:
             raise ValueError("No video found")
         videos = [
             Media(
@@ -41,12 +41,12 @@ class Tiktok:
         ]
 
         return ForumPost(
-            text=f"<p>{desc[0].replace('\n', '<br>')}</p>" if desc is not None else "",
-            markdown=desc[0] if desc is not None else "",
+            text=f"<p>{desc[0].replace('\n', '<br>')}</p>" if desc else "",
+            markdown=desc[0] if desc else "",
             flair=None,
             sub=None,
             sub_url=None,
-            title=title[0] if title is not None else "TikTok video",
+            title=title[0] if title else "TikTok video",
             score=None,
             upvote_ratio=0,
             upvotes=None,
