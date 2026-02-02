@@ -37,12 +37,17 @@ class Config(BaseProxyConfig):
 
 
 class MautrFxEmbedBot(Plugin):
-    REDDIT_URL = re.compile(
-        r"https://.+?\.[A-Za-z]+(/r/[A-Za-z0-9_.]+)?(/comments)?/(?P<post_id>[A-Za-z0-9]+)"
-        r"(/.*?/(?P<comment_id>[A-Za-z0-9]+))?"
+    TWITTER_URL = re.compile(r"https://.+?\.[A-Za-z]+/[A-Za-z0-9_]+/status/\d+")
+    BLUESKY_URL = re.compile(
+        r"https://.+?\.[A-Za-z]+(/profile)?/@?(?P<username>[A-Za-z0-9:.-]+)/"
+        r"(app\.bsky\.feed\.)?post/(?P<post_id>[A-Za-z0-9]+)"
     )
     MASTODON_URL = re.compile(
         r"(?P<base_url>https://.+?\.[A-Za-z]+)/@[A-Za-z0-9_]+/(?P<status_id>[0-9]+)"
+    )
+    REDDIT_URL = re.compile(
+        r"https://.+?\.[A-Za-z]+(/r/[A-Za-z0-9_.]+)?(/comments)?/(?P<post_id>[A-Za-z0-9]+)"
+        r"(/.*?/(?P<comment_id>[A-Za-z0-9]+))?"
     )
     LEMMY_URL = re.compile(
         r"(?P<base_url>https://.+?\.[A-Za-z]+)/post/(?P<post_id>\d+)/?(?P<comment_id>\d+)?"
@@ -136,22 +141,20 @@ class MautrFxEmbedBot(Plugin):
 
     async def _handle_twitter(self, url: str) -> tuple[str, str] | None:
         for domain in self.config["twitter_domains"]:
-            if url.startswith(f"https://{domain}"):
+            if url.startswith(f"https://{domain}") and self.TWITTER_URL.match(url):
                 return "twitter", url.replace(domain, "api.fxtwitter.com")
         return None
 
     async def _handle_bluesky(self, url: str) -> tuple[str, str] | None:
         for domain in self.config["bluesky_domains"]:
-            if url.startswith(f"https://{domain}/profile"):
-                new_url = (
-                    url
-                    .replace(
-                        f"{domain}/profile",
-                        "api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=at:/"
+            if url.startswith(f"https://{domain}"):
+                m = self.BLUESKY_URL.match(url)
+                if m is not None:
+                    new_url = (
+                        f"https://api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=at://"
+                        f"{m.group("username")}/app.bsky.feed.post/{m.group("post_id")}&depth=0"
                     )
-                    .replace("/post/", "/app.bsky.feed.post/")
-                )
-                return "bsky", f"{new_url}&depth=0"
+                    return "bsky", new_url
         return None
 
     async def _handle_instagram(self, url: str) -> tuple[str, str] | None:
@@ -189,8 +192,7 @@ class MautrFxEmbedBot(Plugin):
         if m is not None:
             if m.group("comment_id"):
                 return "lemmy", f"{m.group("base_url")}/api/v3/comment?id={m.group("comment_id")}"
-            if m.group("post_id"):
-                return "lemmy", f"{m.group("base_url")}/api/v3/post?id={m.group("post_id")}"
+            return "lemmy", f"{m.group("base_url")}/api/v3/post?id={m.group("post_id")}"
         return None
 
     async def _parse_preview(self, preview_raw: Any, service: str) -> BlogPost | ForumPost | None:
