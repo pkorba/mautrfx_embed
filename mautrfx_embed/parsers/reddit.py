@@ -178,7 +178,7 @@ class Reddit:
             video = Media(
                 width=0,
                 height=0,
-                url= self.utils.config["player"] + data["media"]["reddit_video"]["hls_url"],
+                url=self.utils.config["player"] + data["media"]["reddit_video"]["hls_url"],
                 thumbnail_url=None,
                 filetype="v"
             )

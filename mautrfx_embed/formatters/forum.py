@@ -27,12 +27,12 @@ class Forum:
         subtext = f"{user} on {sub}" if user and sub else ""
         # HTML
         if is_html:
-            flair = f"<code>SPOILER</code> " if post.spoiler else ""
+            flair = "<code>SPOILER</code> " if post.spoiler else ""
             flair += f"<code>{post.flair.title()}</code> " if post.flair else ""
             subtext = f"<br>{subtext}" if subtext else ""
             return f"<p>{flair}<b>{title}</b>{subtext}</p>"
         # Markdown
-        flair = f"`SPOILER` " if post.spoiler else ""
+        flair = "`SPOILER` " if post.spoiler else ""
         flair += f"`{post.flair.title()}` " if post.flair else ""
         subtext = f"  \n> {subtext}" if subtext else ""
         return f"> {flair}**{title}**{subtext}  \n>  \n"
@@ -66,7 +66,7 @@ class Forum:
         if text:
             # HTML
             if is_html:
-                return f"<p><b>{' '.join(text)}</b></p>"
+                return f"<p><b>{" ".join(text)}</b></p>"
             # Markdown
-            return f"> **{' '.join(text)}**  \n>  \n"
+            return f"> **{" ".join(text)}**  \n>  \n"
         return ""

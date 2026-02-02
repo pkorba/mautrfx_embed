@@ -47,6 +47,7 @@ class SharedFmt:
                 ),
                 sensitive,
             )
+            # To prevent running into ratelimit
             await asyncio.sleep(0.2)
             if image_mxc:
                 thumbs.append(f"{await self.get_link(
@@ -70,24 +71,24 @@ class SharedFmt:
         """
         if len(media) > 0:
             media_formatted = []
-            is_audio = False
-            is_video = False
+            has_audio = False
+            has_video = False
             for i, med in enumerate(media):
                 if med.filetype == "v":
                     short = "Vid"
-                    is_video = True
+                    has_video = True
                 elif med.filetype == "a":
                     short = "Audio"
-                    is_audio = True
+                    has_audio = True
                 else:
                     short = "Pic"
                 media_formatted.append(await self.get_link(med.url, f"{short}#{i + 1}", is_html))
 
-            if is_audio and is_video:
+            if has_audio and has_video:
                 title = "Audio/Videos"
-            elif is_audio:
+            elif has_audio:
                 title = "Audio"
-            elif is_video:
+            elif has_video:
                 title = "Videos"
             else:
                 title = "Photos"
@@ -120,7 +121,6 @@ class SharedFmt:
         # Markdown
         return f"> **{name}**{date_md}"
 
-
     async def get_image(
         self,
         src: str,
@@ -138,7 +138,7 @@ class SharedFmt:
         """
         width = f"width=\"{size[0]}\" " if size[0] else ""
         height = f"height=\"{size[1]}\" " if size[1] else ""
-        #HTML
+        # HTML
         if is_html:
             return f"<img src=\"{src}\" alt=\"{alt}\" {width}{height}/>"
         # Markdown

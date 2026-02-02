@@ -9,13 +9,14 @@ from ..resources.utils import Utilities
 
 
 class Lemmy:
+    SPOILER_TAG = re.compile(r":::\sspoiler\s(.*?)\n(.*?)\n:::", flags=re.I | re.DOTALL)
+    INSTANCE_NAME = re.compile(r"https://(www\.)?(?P<base_url>.+?)/.*")
+    EMPTY_LINK = re.compile(r"\[]\((.+?)\)")
+    FLAIR_TITLE = re.compile(r"^\[(?P<flair>[A-Za-z0-9\s]+?)]\s?(?P<title>.*)")
+
     def __init__(self, loop: AbstractEventLoop, utils: Utilities):
         self.loop = loop
         self.utils = utils
-        self.SPOILER_TAG = re.compile(r":::\sspoiler\s(.*?)\n(.*?)\n:::", flags=re.I | re.DOTALL)
-        self.INSTANCE_NAME = re.compile(r"https://(www\.)?(?P<base_url>.+?)/.*")
-        self.EMPTY_LINK = re.compile(r"\[]\((.+?)\)")
-        self.FLAIR_TITLE = re.compile(r"^\[(?P<flair>[A-Za-z0-9\s]+?)]\s?(?P<title>.*)")
 
     async def parse_preview(self, data: Any) -> ForumPost:
         if data.get("error"):
@@ -109,26 +110,21 @@ class Lemmy:
     def _parse_text(self, text: str) -> str:
         if not text:
             return ""
-        # Don't try to display inline images and replace faulty newlines
+        # Don't try to display inline images, fix escaping, fix newlines
         text = text.replace("![", "[").replace("\\", "").replace("\n", "  \n")
         # For links with no alt text use the URL because they're not visible otherwise
         text = self.EMPTY_LINK.sub(r"[\1](\1)", text)
-        # Fix custom spoiler tags
-        text = self.SPOILER_TAG.sub(self._md_group, text)
-        text = markdown.markdown(text, extensions=["tables", "fenced_code"], output_format="html")
-        return text
-
-    def _md_group(self, match) -> str:
-        return (
-            "<details>"
-            f"<summary>{match.group(1)} </summary>"
-            f"{markdown.markdown(
-                match.group(2),
-                extensions=['tables', 'fenced_code'],
-                output_format='html'
-            )}"
-            "</details>"
+        # Fix custom spoiler tags that markdown lib can't convert on its own
+        text = self.SPOILER_TAG.sub(
+            r"<details markdown='1'><summary markdown='1'>\1 </summary>\2</details>",
+            text
         )
+        text = markdown.markdown(
+            text,
+            extensions=["tables", "fenced_code", "md_in_html"],
+            output_format="html"
+        )
+        return text
 
     def _parse_markdown(self, text: str) -> str:
         if not text:

@@ -22,6 +22,9 @@ class Utilities:
         self.headers = {
             "User-Agent": "MautrFxEmbedBot/1.1.3"
         }
+        self.headers_fake = {
+            "User-Agent": "WhatsApp/2"
+        }
 
     async def parse_interaction(self, value: int) -> str:
         """
@@ -61,7 +64,7 @@ class Utilities:
         try:
             response = await self.bot.http.get(
                 url,
-                headers=self.headers,
+                headers=self.headers_fake,
                 timeout=timeout,
                 raise_for_status=True
             )
@@ -88,18 +91,17 @@ class Utilities:
             self.bot.log.error(f"Connection failed: {e}")
             return ""
 
-    async def get_html_preview(self, url: str) -> Any:
+    async def get_html_preview(self, url: str) -> str:
         """
         Get HTML webpage source.
         :param url: source URL
         :return: text content of the response
         """
-        headers = {"User-Agent": "WhatsApp/2"}
         timeout = ClientTimeout(total=20)
         try:
             response = await self.bot.http.get(
                 url,
-                headers=headers,
+                headers=self.headers_fake,
                 timeout=timeout,
                 raise_for_status=True
             )
@@ -114,12 +116,11 @@ class Utilities:
         :param url: source URL
         :return: text content of the response
         """
-        headers = {"User-Agent": "WhatsApp/2"}
         timeout = ClientTimeout(total=20)
         try:
             response = await self.bot.http.get(
                 url,
-                headers=headers,
+                headers=self.headers_fake,
                 timeout=timeout,
                 raise_for_status=True,
                 allow_redirects=False

@@ -6,6 +6,8 @@ from ..resources.utils import Utilities
 
 
 class Blog:
+    TCO_LINK = re.compile(r"https://t\.co/[A-Za-z0-9]{10}")
+
     def __init__(self, utils: Utilities, fmt: SharedFmt):
         self.utils = utils
         self.fmt = fmt
@@ -43,14 +45,14 @@ class Blog:
         text = data.text
         if not text:
             return ""
-        #HTML
+        # HTML
         if is_html:
             if data.facets:
                 text = await self._replace_facets(data.text, data.facets, data.qtype)
             # Remove useless t.co links that are added to raw text by the FxTwitter API
             # This has to be done AFTER the facets have been substituted
             if data.qtype == "twitter":
-                text = re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", text)
+                text = self.TCO_LINK.sub("", text)
             if data.spoiler_text:
                 return (
                     f"<details>"
@@ -63,7 +65,7 @@ class Blog:
         if data.facets:
             text = await self._replace_facets(data.text, data.facets, data.qtype, False)
         if data.qtype == "twitter":
-            text = re.sub(r"https://t\.co/[A-Za-z0-9]{10}", "", text)
+            text = self.TCO_LINK.sub("", text)
         # It's for Mastodon's case, so there are no facets which is why the previous step is ignored
         # Markdown
         if data.markdown:

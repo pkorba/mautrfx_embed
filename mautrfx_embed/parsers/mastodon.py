@@ -12,13 +12,14 @@ from ..resources.utils import Utilities
 
 
 class Mastodon:
+    INSTANCE_NAME = re.compile(r"https://(www\.)?(?P<base_url>.+?)/.*")
+    QUOTE_PARAGRAPH = re.compile(r"<p\sclass=\"quote-inline\">.*?</p>")
+    INVISIBLE_SPAN = re.compile(r"<span\sclass=\"invisible\">[^<>]*?</span>")
+    ELLIPSIS_SPAN = re.compile(r"<span\sclass=\"ellipsis\">([^<>]*?)</span>")
+
     def __init__(self, loop: AbstractEventLoop, utils: Utilities):
         self.loop = loop
         self.utils = utils
-        self.INSTANCE_NAME = re.compile(r"https://(www\.)?(?P<base_url>.+?)/.*")
-        self.QUOTE_PARAGRAPH = re.compile(r"<p\sclass=\"quote-inline\">.*?</p>")
-        self.INVISIBLE_SPAN = re.compile(r"<span\sclass=\"invisible\">[^<>]*?</span>")
-        self.ELLIPSIS_SPAN = re.compile(r"<span\sclass=\"ellipsis\">([^<>]*?)</span>")
 
     async def parse_preview(self, data: Any) -> BlogPost:
         """
@@ -157,7 +158,7 @@ class Mastodon:
         media = data.get("media_attachments")
         photos: list[Media] = []
         videos: list[Media] = []
-        if media is not None:
+        if media:
             for elem in media:
                 if elem["type"] in ["video", "gifv", "audio"]:
                     metadata = elem["meta"].get("small")
@@ -189,7 +190,7 @@ class Mastodon:
         :return: Link object
         """
         card = data.get("card")
-        if card is not None:
+        if card:
             return Link(
                 title=card["title"],
                 description=card["description"],
@@ -205,7 +206,7 @@ class Mastodon:
         """
         poll = None
         poll_raw = data.get("poll")
-        if poll_raw is not None:
+        if poll_raw:
             choices: list[Choice] = []
             for option in poll_raw["options"]:
                 choice = Choice(
@@ -262,7 +263,7 @@ class Mastodon:
             if not image:
                 continue
             mime = mimetypes.guess_type(emoji["url"])
-            if mime is None:
+            if not mime:
                 continue
             mime = mime[0]
             extension = mimetypes.guess_extension(mime)
@@ -273,7 +274,7 @@ class Mastodon:
                 f":{emoji["shortcode"]}:",
                 f"<img src=\"{image_mxc}\" alt=\":{emoji["shortcode"]}:\" height=\"24\" />"
             )
-            # To prevent server from rejecting the upload
+            # To prevent running into ratelimit
             await asyncio.sleep(0.2)
 
         return text
