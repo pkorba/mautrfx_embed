@@ -146,7 +146,7 @@ class Mastodon:
         # Markdown
         text_maker = html2text.HTML2Text()
         text_maker.body_width = 65536
-        md_text = text_maker.handle(text)
+        md_text = text_maker.handle(text).strip()
         return md_text
 
     async def _parse_media(self, data: Any) -> tuple[list, list]:
