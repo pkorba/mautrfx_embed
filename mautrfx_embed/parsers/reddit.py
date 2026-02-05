@@ -20,7 +20,7 @@ class Reddit:
 
             return ForumPost(
                 text=await self._parse_text(data.get("body_html", "")),
-                markdown=await self._parse_markdown(data["body"]),
+                text_md=await self._parse_markdown(data["body"]),
                 flair=None,
                 sub=data["subreddit_name_prefixed"],
                 sub_url=f"https://www.reddit.com/{data["subreddit_name_prefixed"]}",
@@ -47,7 +47,7 @@ class Reddit:
         data = data["data"]["children"][0]["data"]
         return ForumPost(
             text=await self._parse_text(data.get("selftext_html", "")),
-            markdown=await self._parse_markdown(data["selftext"]),
+            text_md=await self._parse_markdown(data["selftext"]),
             flair=data["link_flair_text"],
             sub=data["subreddit_name_prefixed"],
             sub_url=f"https://www.reddit.com/{data["subreddit_name_prefixed"]}",

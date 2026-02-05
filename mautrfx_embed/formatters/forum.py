@@ -44,7 +44,7 @@ class Forum:
             if len(data.text) > self.utils.config["forum_max_length"]:
                 return f"<details><summary><b>Post content:</b> </summary><br>{data.text}</details>"
             return data.text
-        return f"> {data.markdown.replace("\n", "\n> ")}  \n>  \n"
+        return f"> {data.text_md.replace("\n", "\n> ")}  \n>  \n"
 
     async def get_interactions(self, data: ForumPost, is_html: bool = True) -> str:
         text = []

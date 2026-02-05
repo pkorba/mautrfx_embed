@@ -30,14 +30,14 @@ class Bsky:
         quote: BlogPost = None
         if media is not None:
             videos = await self._parse_videos(media)
-            photos = await self._parse_images(media)
+            photos = await self._parse_photos(media)
             link = await self._parse_external(media)
             quote = await self.parse_quote(media)
 
         return BlogPost(
             text=preview_raw["record"]["text"],
             url=None,
-            markdown=None,
+            text_md=None,
             replies=await self.utils.parse_interaction(preview_raw["replyCount"]),
             reposts=await self.utils.parse_interaction(preview_raw["repostCount"]),
             likes=await self.utils.parse_interaction(preview_raw["likeCount"]),
@@ -45,6 +45,7 @@ class Bsky:
             quotes=None,
             community_note=None,
             author_name=preview_raw["author"]["displayName"],
+            author_name_md=preview_raw["author"]["displayName"],
             author_screen_name=preview_raw["author"]["handle"],
             author_url="https://bsky.app/profile/" + preview_raw["author"]["handle"],
             post_date=await self.utils.parse_date(preview_raw["record"]["createdAt"]),
@@ -62,7 +63,7 @@ class Bsky:
             spoiler_text=None
         )
 
-    async def _parse_images(self, media: Any) -> list[Media]:
+    async def _parse_photos(self, media: Any) -> list[Media]:
         """
         Extract data about image attachments into Media objects
         :param media: JSON with data about image attachments
@@ -82,7 +83,7 @@ class Bsky:
                 photos.append(photo)
         # Posts with quotes have different structure
         if "app.bsky.embed.recordWithMedia" in media["$type"]:
-            photos += await self._parse_images(media["media"])
+            photos += await self._parse_photos(media["media"])
         return photos
 
     async def _parse_videos(self, media: Any) -> list[Media]:
@@ -122,7 +123,7 @@ class Bsky:
             media_rec = media["record"].get("embeds")
             if media_rec is not None:
                 for elem in media_rec:
-                    photos = await self._parse_images(elem)
+                    photos = await self._parse_photos(elem)
                     videos = await self._parse_videos(elem)
                     link = await self._parse_external(elem)
 
@@ -132,7 +133,7 @@ class Bsky:
                     f"https://bsky.app/profile/{media["record"]["author"]["handle"]}/"
                     f"post/{media["record"]["uri"].split("/")[-1]}"
                 ),
-                markdown=None,
+                text_md=None,
                 replies=None,
                 reposts=None,
                 likes=None,
@@ -140,6 +141,7 @@ class Bsky:
                 quotes=None,
                 community_note=None,
                 author_name=media["record"]["author"]["displayName"],
+                author_name_md=media["record"]["author"]["displayName"],
                 author_screen_name=media["record"]["author"]["handle"],
                 author_url=f"https://bsky.app/profile/{media["record"]["author"]["handle"]}",
                 post_date=None,

@@ -23,7 +23,7 @@ class Twitter:
         return BlogPost(
             text=preview_raw["raw_text"]["text"],
             url=None,
-            markdown=None,
+            text_md=None,
             replies=await self.utils.parse_interaction(preview_raw["replies"]),
             reposts=await self.utils.parse_interaction(preview_raw["retweets"]),
             likes=await self.utils.parse_interaction(preview_raw["likes"]),
@@ -31,6 +31,7 @@ class Twitter:
             quotes=None,
             community_note=await self._parse_community_note(preview_raw),
             author_name=preview_raw["author"]["name"],
+            author_name_md=preview_raw["author"]["name"],
             author_screen_name=preview_raw["author"]["screen_name"],
             author_url=preview_raw["author"]["url"],
             post_date=preview_raw["created_timestamp"],
@@ -61,7 +62,7 @@ class Twitter:
         return BlogPost(
                 text=quote["raw_text"]["text"],
                 url=quote["url"],
-                markdown=None,
+                text_md=None,
                 replies=None,
                 reposts=None,
                 likes=None,
@@ -69,6 +70,7 @@ class Twitter:
                 quotes=None,
                 community_note=None,
                 author_name=quote["author"]["name"],
+                author_name_md=quote["author"]["name"],
                 author_url=quote["author"]["url"],
                 author_screen_name=quote["author"]["screen_name"],
                 post_date=None,
@@ -77,7 +79,7 @@ class Twitter:
                 facets=await self._parse_facets(quote),
                 poll=await self._parse_poll(quote),
                 link=None,
-                quote=None,
+                quote=await self._get_child_quote_info(quote.get("quote")),
                 translation=None,
                 translation_lang=None,
                 qtype="twitter",
@@ -192,3 +194,36 @@ class Twitter:
                     facets.append(facet)
             facets.sort(key=lambda f: f.byte_start)
         return facets
+
+    async def _get_child_quote_info(self, quote: Any) -> BlogPost | None:
+        if not quote:
+            return None
+
+        return BlogPost(
+                text="<b>Quoted another post</b>",
+                url=None,
+                text_md="**Quoted another post**",
+                replies=None,
+                reposts=None,
+                likes=None,
+                views=None,
+                quotes=None,
+                community_note=None,
+                author_name=None,
+                author_name_md=None,
+                author_url=None,
+                author_screen_name=None,
+                post_date=None,
+                photos=[],
+                videos=[],
+                facets=[],
+                poll=None,
+                link=None,
+                quote=None,
+                translation=None,
+                translation_lang=None,
+                qtype="twitter",
+                name=None,
+                sensitive=False,
+                spoiler_text=None
+            )

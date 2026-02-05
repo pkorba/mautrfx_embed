@@ -33,14 +33,12 @@ class Mastodon:
 
         content = await self.loop.run_in_executor(None, self._parse_text, data["content"])
         md_text = await self.loop.run_in_executor(None, self._parse_markdown, content)
-
         content = await self._replace_emoji_codes(data["emojis"], content)
-        videos, photos = await self._parse_media(data)
 
         return BlogPost(
             text=content,
             url=None,
-            markdown=md_text,
+            text_md=md_text,
             replies=await self.utils.parse_interaction(data["replies_count"]),
             reposts=await self.utils.parse_interaction(data["reblogs_count"]),
             likes=await self.utils.parse_interaction(data["favourites_count"]),
@@ -51,11 +49,12 @@ class Mastodon:
                 data["account"]["emojis"],
                 data["account"]["display_name"]
             ),
+            author_name_md=data["account"]["display_name"],
             author_screen_name=data["account"]["username"],
             author_url=data["account"]["url"],
             post_date=await self.utils.parse_date(data["created_at"]),
-            photos=photos,
-            videos=videos,
+            photos=await self._parse_photos(data),
+            videos=await self._parse_videos(data),
             facets=[],
             poll=await self._parse_poll(data),
             link=await self._parse_link(data),
@@ -88,12 +87,11 @@ class Mastodon:
             quote["quoted_status"]["emojis"],
             quote_text
         )
-        q_videos, q_photos = await self._parse_media(quote["quoted_status"])
 
         return BlogPost(
                 text=quote_text,
                 url=quote["quoted_status"]["url"],
-                markdown=md_quote_text,
+                text_md=md_quote_text,
                 replies=None,
                 reposts=None,
                 likes=None,
@@ -104,15 +102,16 @@ class Mastodon:
                     quote["quoted_status"]["account"]["emojis"],
                     quote["quoted_status"]["account"]["display_name"]
                 ),
+                author_name_md=quote["quoted_status"]["account"]["display_name"],
                 author_url=quote["quoted_status"]["account"]["url"],
                 author_screen_name=quote["quoted_status"]["account"]["username"],
                 post_date=None,
-                photos=q_photos,
-                videos=q_videos,
+                photos=await self._parse_photos(quote["quoted_status"]),
+                videos=await self._parse_videos(quote["quoted_status"]),
                 facets=[],
                 poll=await self._parse_poll(quote["quoted_status"]),
                 link=await self._parse_link(quote["quoted_status"]),
-                quote=None,
+                quote=await self._get_child_quote_info(quote["quoted_status"]["quote"]),
                 translation=None,
                 translation_lang=None,
                 qtype="mastodon",
@@ -149,39 +148,72 @@ class Mastodon:
         md_text = text_maker.handle(text).strip()
         return md_text
 
-    async def _parse_media(self, data: Any) -> tuple[list, list]:
+    async def _parse_videos(self, data: Any) -> list[Media]:
         """
-        Extract media attachments from JSON
+        Extract video attachments from JSON
         :param data: post's JSON from Mastodon API
-        :return: tuple with two lists containing Media objects for videos and photos
+        :return: list containing Media video objects
         """
-        media = data.get("media_attachments")
-        photos: list[Media] = []
         videos: list[Media] = []
-        if media:
-            for elem in media:
-                if elem["type"] in ["video", "gifv", "audio"]:
-                    metadata = elem["meta"].get("small")
-                    if metadata is None:
-                        metadata = elem["meta"].get("original")
-                    video = Media(
-                        width=metadata.get("width", 0) if metadata is not None else 0,
-                        height=metadata.get("height", 0) if metadata is not None else 0,
-                        url=elem["url"],
-                        thumbnail_url=elem["preview_url"],
-                        filetype="a" if elem["type"] == "audio" else "v"
-                    )
-                    videos.append(video)
-                elif elem["type"] == "image":
-                    photo = Media(
-                        width=elem["meta"]["original"]["width"],
-                        height=elem["meta"]["original"]["height"],
-                        url=elem["url"],
-                        thumbnail_url=elem["preview_url"],
-                        filetype="p"
-                    )
-                    photos.append(photo)
-        return videos, photos
+        media = data.get("media_attachments")
+        if not media:
+            return videos
+
+        for elem in media:
+            if elem["type"] not in ["video", "gifv", "audio"]:
+                continue
+            metadata = elem["meta"].get("small")
+            if not metadata:
+                metadata = elem["meta"].get("original")
+            video = Media(
+                width=metadata.get("width", 0),
+                height=metadata.get("height", 0),
+                url=elem["url"],
+                thumbnail_url=elem["preview_url"],
+                filetype="a" if elem["type"] == "audio" else "v"
+            )
+            videos.append(video)
+        return videos
+
+    async def _parse_photos(self, data: Any) -> list[Media]:
+        """
+        Extract photo attachments from JSON
+        :param data: post's JSON from Mastodon API
+        :return: list containing Media photo objects
+        """
+        photos: list[Media] = []
+        media = data.get("media_attachments")
+        if not media:
+            return photos
+
+        for elem in media:
+            if elem["type"] != "image":
+                continue
+            metadata = elem["meta"].get("small")
+            thumb = elem["preview_url"]
+            if (
+                not metadata or (
+                    len(media) == 1 and
+                    max(metadata.get("width", 0),
+                        metadata.get("height", 0)) < self.utils.config["thumbnail_large"]
+                )
+                or (
+                    len(media) > 1 and
+                    max(metadata.get("width", 0),
+                        metadata.get("height", 0)) < self.utils.config["thumbnail_small"]
+                )
+            ):
+                metadata = elem["meta"].get("original")
+                thumb = elem["url"]
+            photo = Media(
+                width=metadata.get("width", 0),
+                height=metadata.get("height", 0),
+                url=elem["url"],
+                thumbnail_url=thumb,
+                filetype="p"
+            )
+            photos.append(photo)
+        return photos
 
     async def _parse_link(self, data: Any) -> Link | None:
         """
@@ -278,3 +310,36 @@ class Mastodon:
             await asyncio.sleep(0.2)
 
         return text
+
+    async def _get_child_quote_info(self, quote: Any) -> BlogPost | None:
+        if not quote:
+            return None
+
+        return BlogPost(
+                text="<b>Quoted another post</b>",
+                url=None,
+                text_md="**Quoted another post**",
+                replies=None,
+                reposts=None,
+                likes=None,
+                views=None,
+                quotes=None,
+                community_note=None,
+                author_name=None,
+                author_name_md=None,
+                author_url=None,
+                author_screen_name=None,
+                post_date=None,
+                photos=[],
+                videos=[],
+                facets=[],
+                poll=None,
+                link=None,
+                quote=None,
+                translation=None,
+                translation_lang=None,
+                qtype="mastodon",
+                name=None,
+                sensitive=False,
+                spoiler_text=None
+            )

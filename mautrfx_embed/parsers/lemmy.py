@@ -31,7 +31,7 @@ class Lemmy:
                     self._parse_text,
                     data["comment"].get("content")
                 ),
-                markdown=await self.loop.run_in_executor(
+                text_md=await self.loop.run_in_executor(
                     None,
                     self._parse_markdown,
                     data["comment"].get("content")
@@ -63,7 +63,7 @@ class Lemmy:
         title, flair = await self._parse_title(data["post"]["name"])
         return ForumPost(
             text=await self.loop.run_in_executor(None, self._parse_text, data["post"].get("body")),
-            markdown=await self.loop.run_in_executor(
+            text_md=await self.loop.run_in_executor(
                 None,
                 self._parse_markdown,
                 data["post"].get("body")

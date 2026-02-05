@@ -42,7 +42,7 @@ class Tiktok:
 
         return ForumPost(
             text=f"<p>{desc[0].replace('\n', '<br>')}</p>" if desc else "",
-            markdown=desc[0] if desc else "",
+            text_md=desc[0] if desc else "",
             flair=None,
             sub=None,
             sub_url=None,

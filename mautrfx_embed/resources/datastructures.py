@@ -45,7 +45,7 @@ class Poll:
 class BlogPost:
     text: str
     url: str
-    markdown: str
+    text_md: str
     replies: str
     reposts: str
     likes: str
@@ -53,6 +53,7 @@ class BlogPost:
     quotes: str
     community_note: str
     author_name: str
+    author_name_md: str
     author_screen_name: str
     author_url: str
     post_date: int
@@ -73,7 +74,7 @@ class BlogPost:
 @dataclass
 class ForumPost:
     text: str
-    markdown: str
+    text_md: str
     flair: str
     sub: str
     sub_url: str

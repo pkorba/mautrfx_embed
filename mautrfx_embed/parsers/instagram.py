@@ -39,7 +39,7 @@ class Instagram:
 
         return ForumPost(
             text=f"<p>{desc.replace('\n', '<br>')}</p>" if desc else "",
-            markdown=desc,
+            text_md=desc,
             flair=None,
             sub=None,
             sub_url=None,

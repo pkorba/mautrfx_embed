@@ -20,14 +20,15 @@ class Blog:
         :param is_html: True for HTML, False for Markdown
         :return: formatted string with data about the author
         """
-        author_name = data.author_name if data.author_name else data.author_screen_name
         # HTML
         if is_html:
+            author_name = data.author_name if data.author_name else data.author_screen_name
             return f"<p>{await self.fmt.get_link(
                 data.author_url,
                 f"<b>{author_name} (@{data.author_screen_name})</b>"
             )}</p>"
         # Markdown
+        author_name = data.author_name_md if data.author_name_md else data.author_screen_name
         return f"> {await self.fmt.get_link(
             data.author_url,
             f"**{author_name}** **(@{data.author_screen_name})**",
@@ -68,8 +69,8 @@ class Blog:
             text = self.TCO_LINK.sub("", text)
         # It's for Mastodon's case, so there are no facets which is why the previous step is ignored
         # Markdown
-        if data.markdown:
-            text = data.markdown
+        if data.text_md:
+            text = data.text_md
         return f"> {text.replace('\n', '  \n> ')}  \n>  \n"
 
     async def get_translation(self, data: BlogPost, is_html: bool = True) -> str:
@@ -154,6 +155,8 @@ class Blog:
         text += res if is_html else res.replace("> ", "> > ")
         res = await self.fmt.get_media_list(data.photos, data.sensitive, is_html)
         text += res if is_html else res.replace("> ", "> > ")
+        res = await self.get_quote(data.quote, is_html)
+        text += res if is_html else res.replace("> > ", "> > > ")
         res = await self.get_external_link(data.link, is_html)
         text += res if is_html else res.replace("> > ", "> > > ")
         # HTML
@@ -183,7 +186,7 @@ class Blog:
         # Markdown
         return (
             f"> > {await self.fmt.get_link(data.url, "**Quoting**", False)} "
-            f"{data.author_name} **({link})**  \n> >  \n"
+            f"{data.author_name_md} **({link})**  \n> >  \n"
         )
 
     async def get_interactions(self, data: BlogPost, is_html: bool = True) -> str:
