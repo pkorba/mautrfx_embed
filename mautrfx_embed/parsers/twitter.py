@@ -12,7 +12,7 @@ class Twitter:
         """
         Parse JSON data from FxTwitter API
         :param preview_raw: JSON data
-        :return: Post object
+        :return: BlogPost object
         """
         if not preview_raw["code"] == 200:
             raise ValueError("Bad response")
@@ -53,7 +53,7 @@ class Twitter:
         """
         Parse JSON quote data from FxTwitter API
         :param data: JSON data of a quote
-        :return: Post object
+        :return: BlogPost object
         """
         quote = data.get("quote")
         if not quote:
@@ -196,6 +196,11 @@ class Twitter:
         return facets
 
     async def _get_child_quote_info(self, quote: Any) -> BlogPost | None:
+        """
+        Return an information about quote inside quote
+        :param quote:  JSON data of a quote
+        :return: BlogPost object
+        """
         if not quote:
             return None
 

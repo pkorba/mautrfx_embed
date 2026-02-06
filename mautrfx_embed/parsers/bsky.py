@@ -14,7 +14,7 @@ class Bsky:
         """
         Parse JSON data from Bsky API
         :param preview_raw: JSON data
-        :return: Post object
+        :return: BlogPost object
         """
         error = preview_raw.get("error")
         if error is not None:
@@ -112,7 +112,7 @@ class Bsky:
         """
         Parse JSON data about quote post from Bsky API
         :param media: JSON data
-        :return: Post object
+        :return: BlogPost object
         """
         if "app.bsky.embed.record" in media["$type"]:
             if "app.bsky.embed.recordWithMedia" in media["$type"]:

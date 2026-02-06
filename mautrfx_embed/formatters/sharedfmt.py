@@ -18,9 +18,9 @@ class SharedFmt:
     ) -> str:
         """
         Get message part that contains media attachment thumbnails
-        :param sensitive: True if contains NSFW media
         :param videos: list of videos
         :param photos: list of photos
+        :param sensitive: True if contains NSFW media
         :param is_link: True if small thumbnail is requested
         :return: formatted string that contains thumbnails and links to original media
         """

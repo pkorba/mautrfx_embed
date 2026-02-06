@@ -92,7 +92,7 @@ class MautrFxEmbedBot(Plugin):
             "lemmy": Lemmy(loop=self.loop, utils=self.utils)
         }
 
-    @command.passive(r"(https?://\S+)", multiple=True)
+    @command.passive(r"(https://\S+)", multiple=True)
     async def embed(self, evt: MessageEvent, matches: list[tuple[str, str]]) -> None:
         if evt.sender == self.client.mxid:
             return
@@ -117,9 +117,9 @@ class MautrFxEmbedBot(Plugin):
 
     async def _get_api_urls(self, urls: list[tuple[str, str]]) -> list[tuple[str, str]]:
         """
-        Extract canonical URLs from a list of URLs
+        Extract API URLs from a list of URLs
         :param urls: list of URLs
-        :return: list of canonical URLs
+        :return: list of API URLs
         """
         api_urls = []
         handlers = [

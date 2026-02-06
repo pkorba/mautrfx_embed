@@ -25,7 +25,7 @@ class Mastodon:
         """
         Parse JSON data from Mastodon API
         :param data: JSON data
-        :return: Post object
+        :return: BlogPost object
         """
         error = data.get("error")
         if error is not None:
@@ -71,7 +71,7 @@ class Mastodon:
         """
         Parse JSON data of a quote post from Mastodon API
         :param data: JSON data of a quote post
-        :return: Post object
+        :return: BlogPost object
         """
         quote = data.get("quote")
         if not quote:
@@ -124,7 +124,7 @@ class Mastodon:
         """
         Remove needless HTML tags from the content of Mastodon post
         :param text: text content of a post
-        :return: tuple of cleaned HTML text and Markdown version of the same text
+        :return: cleaned HTML text
         """
         if not text:
             return ""
@@ -140,6 +140,11 @@ class Mastodon:
         return content
 
     def _parse_markdown(self, text: str) -> str:
+        """
+        Convert HTML post content into Markdown version
+        :param text: HTML text content of a post
+        :return: Markdown text
+        """
         if not text:
             return ""
         # Markdown
@@ -312,6 +317,11 @@ class Mastodon:
         return text
 
     async def _get_child_quote_info(self, quote: Any) -> BlogPost | None:
+        """
+        Return an information about quote inside quote
+        :param quote:  JSON data of a quote
+        :return: BlogPost object
+        """
         if not quote:
             return None
 

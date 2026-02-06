@@ -14,9 +14,9 @@ class Instagram:
 
     async def parse_preview(self, data: Any) -> ForumPost:
         """
-        Build a Post object for Instagram reels
+        Build a ForumPost object for Instagram reels
         :param data: Website content of canonical URL
-        :return: Post object
+        :return: ForumPost object
         """
         link, desc, image = await self.loop.run_in_executor(None, self._parse_canonical_page, data)
         if not link:
@@ -63,6 +63,11 @@ class Instagram:
         )
 
     def _parse_canonical_page(self, data: Any) -> tuple[str, str, str]:
+        """
+        Parse Instagram page and extrack link, description, and thumbnail from HTML
+        :param data: Instagram page
+        :return: link, description, thumbnail
+        """
         page = html.fromstring(data)
         if page is None:
             raise ValueError("Bad response")

@@ -112,9 +112,9 @@ class Utilities:
 
     async def get_location_header(self, url: str) -> str:
         """
-        Get HTML webpage source.
+        Get HTML webpage location header.
         :param url: source URL
-        :return: text content of the response
+        :return: text content of the location header
         """
         timeout = ClientTimeout(total=20)
         try:
@@ -135,11 +135,11 @@ class Utilities:
 
     def _get_thumbnail(self, image: tuple[bytes, int, int, bool, bool]) -> tuple[bytes, int, int]:
         """
-        Convert original thumbnail into 100x100 one
-        :param image: tuple that contains image as bytes, width, height, bool that indicates
+        Convert original thumbnail/image into one with specified size
+        :param image: tuple that contains: image as bytes, width, height, bool that indicates
         whether passed image is a thumbnail to video or just a normal photo,
         bool that indicates whether image should be blurred
-        :return: a tuple with thumbnail as bytes, its width and height
+        :return: a tuple with thumbnail as bytes, its width, and height
         """
         try:
             img = Image.open(io.BytesIO(image[0]))
@@ -169,10 +169,10 @@ class Utilities:
 
     def _add_overlay(self, img: ImageFile, overlay: bytes) -> None:
         """
-        Adds a play button overlay to thumbnails of video files
+        Adds an overlay to thumbnails of video files
         :param img: the image to add overlay to
-        :param overlay: the overlay
-        :return: image with a play button overlay
+        :param overlay: the overlay image
+        :return: image with an overlay in the middle
         """
         if not img:
             return
@@ -197,7 +197,7 @@ class Utilities:
             nsfw: bool = False
     ) -> tuple[str, int, int]:
         """
-        Download image from external URL and upload its thumbnail to Matrix
+        Download image from external URL and upload its thumbnail to Matrix server
         :param media: Media object with data about an image
         :param size: max size of a generated thumbnail
         :param nsfw: True if image needs blurring, False otherwise

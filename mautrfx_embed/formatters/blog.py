@@ -16,7 +16,7 @@ class Blog:
         """
         Get message part that contains data about the author, including link to their profile
         author_display_name (@author_username)
-        :param data: Post data
+        :param data: BlogPost data
         :param is_html: True for HTML, False for Markdown
         :return: formatted string with data about the author
         """
@@ -39,7 +39,7 @@ class Blog:
         """
         Get message part that contains the blog post content. Strips Twitter posts from useless
         t.co links and replaces facets.
-        :param data: Post data
+        :param data: BlogPost data
         :param is_html: True for HTML, False for Markdown
         :return: formatted string with post content
         """
@@ -67,7 +67,6 @@ class Blog:
             text = await self._replace_facets(data.text, data.facets, data.qtype, False)
         if data.qtype == "twitter":
             text = self.TCO_LINK.sub("", text)
-        # It's for Mastodon's case, so there are no facets which is why the previous step is ignored
         # Markdown
         if data.text_md:
             text = data.text_md
@@ -76,7 +75,7 @@ class Blog:
     async def get_translation(self, data: BlogPost, is_html: bool = True) -> str:
         """
         Get message part that contains the translation of the post.
-        :param data: Post data
+        :param data: BlogPost data
         :param is_html: True for HTML, False for Markdown
         :return: formatted string with translation of the post
         """
@@ -99,7 +98,7 @@ class Blog:
     async def get_poll(self, data: BlogPost, is_html: bool = True) -> str:
         """
         Get message part that contains poll
-        :param data: Post data
+        :param data: BlogPost data
         :param is_html: True for HTML, False for Markdown
         :return: formatted string with poll
         """
@@ -192,7 +191,7 @@ class Blog:
     async def get_interactions(self, data: BlogPost, is_html: bool = True) -> str:
         """
         Get message part with number of interactions with the post
-        :param data: Post data
+        :param data: BlogPost data
         :param is_html: True for HTML, False for Markdown
         :return: formatted string with number of interactions with the post
         """
@@ -267,7 +266,7 @@ class Blog:
     async def tw_replace_urls(self, data: BlogPost) -> None:
         """
         If appropriate config values are set, replaces original URL with Nitter equivalents
-        :param data: Preview object with data from API
+        :param data: BlogPost object
         :return:
         """
         if data.qtype != "twitter" or not self.utils.config["nitter_redirect"]:

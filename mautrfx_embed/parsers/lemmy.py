@@ -19,6 +19,11 @@ class Lemmy:
         self.utils = utils
 
     async def parse_preview(self, data: Any) -> ForumPost:
+        """
+        Parse JSON data from Lemmy API
+        :param data: JSON data
+        :return: ForumPost object
+        """
         if data.get("error"):
             raise ValueError("Bad response")
 
@@ -94,12 +99,23 @@ class Lemmy:
         )
 
     async def _parse_author(self, creator: Any, community: Any) -> str:
+        """
+        Get post author's name
+        :param creator: author section JSON data
+        :param community: community section JSON data
+        :return: author's username link
+        """
         community_url = self.INSTANCE_NAME.sub(r"\g<base_url>", community["actor_id"])
         creator_url = self.INSTANCE_NAME.sub(r"\g<base_url>", creator["actor_id"])
         base_url = "" if community_url == creator_url else f"@{creator_url}"
         return f"{creator["name"]}{base_url}"
 
     async def _parse_title(self, title: str) -> tuple[str, str]:
+        """
+        Split title string into title and flair
+        :param title: Raw title string from API
+        :return: tuple with title and flair
+        """
         flair = ""
         m_title = self.FLAIR_TITLE.match(title)
         if m_title:
@@ -108,6 +124,11 @@ class Lemmy:
         return title, flair
 
     def _parse_text(self, text: str) -> str:
+        """
+        Parse Markdown text of a post and convert it into HTML
+        :param text: Markdown body of a post
+        :return: HTML text
+        """
         if not text:
             return ""
         # Don't try to display inline images, fix escaping, fix newlines
@@ -127,6 +148,11 @@ class Lemmy:
         return text
 
     def _parse_markdown(self, text: str) -> str:
+        """
+        Removes unnecessary characters from Markdown body of a post
+        :param text: Markdown body of a post
+        :return: cleaned Markdown text
+        """
         if not text:
             return ""
         # Fix custom spoiler tags
@@ -138,6 +164,11 @@ class Lemmy:
         return text
 
     async def _parse_photos(self, data: Any) -> list[Media]:
+        """
+        Extract images from JSON post data
+        :param data: JSON post data
+        :return: list of images
+        """
         photos: list[Media] = []
         details = data.get("image_details")
         if details:
@@ -156,6 +187,11 @@ class Lemmy:
         return photos
 
     async def _parse_thumbnail(self, data: Any) -> Media | None:
+        """
+        Extract thumbnail from JSON post data
+        :param data: JSON post data
+        :return: thumbnail or None
+        """
         photo = None
         thumbnail_url = data["post"].get("thumbnail_url")
         if thumbnail_url:
@@ -169,6 +205,11 @@ class Lemmy:
         return photo
 
     async def _parse_videos(self, data: Any) -> list[Media]:
+        """
+        Extract video from JSON post data
+        :param data: JSON post data
+        :return: video
+        """
         videos: list[Media] = []
         is_video = data["post"].get("url_content_type", "") in (
             "video/x-msvideo",

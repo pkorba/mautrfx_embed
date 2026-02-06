@@ -11,6 +11,11 @@ class Reddit:
         self.utils = utils
 
     async def parse_preview(self, data: Any) -> ForumPost:
+        """
+        Parse JSON data from Reddit API
+        :param data: JSON data
+        :return: ForumPost object
+        """
         if not data["data"]["children"]:
             raise ValueError("Bad response")
 
@@ -71,6 +76,11 @@ class Reddit:
         )
 
     async def _parse_text(self, text: str) -> str:
+        """
+        Remove needless HTML comments from the content of Reddit post, fix spoiler tag
+        :param text: HTML content of a post
+        :return: HTML text
+        """
         if not text:
             return ""
         # Remove comments
@@ -83,11 +93,21 @@ class Reddit:
         return html.unescape(text)
 
     async def _parse_markdown(self, text: str) -> str:
+        """
+        Fix spoiler tag in Markdown version of the post
+        :param text: Markdown content of a post
+        :return: Markdown text
+        """
         if not text:
             return ""
         return text.replace("&gt;!", "||").replace("!&lt;", "||")
 
     async def _parse_photos(self, data: Any) -> list[Media]:
+        """
+        Extract images from Reddit post JSON data
+        :param data: post JSON data
+        :return: list of images
+        """
         photos: list[Media] = []
         hint = data.get("post_hint")
         if hint == "image":
@@ -138,6 +158,12 @@ class Reddit:
         return photos
 
     async def _parse_preview(self, data: Any, size_type: str) -> Media | None:
+        """
+        Extract single preview image from Reddit post JSON data
+        :param data: post JSON data
+        :param size_type: 'thumbnail_large' or 'thumbnail_small'
+        :return: preview image closest to choosen size
+        """
         photo = None
         if not data.get("preview"):
             return None
@@ -167,6 +193,11 @@ class Reddit:
         return photo
 
     async def _parse_videos(self, data: Any) -> list[Media]:
+        """
+        Extract video from reddit post JSON data
+        :param data: post JSON data
+        :return: list of videos
+        """
         videos: list[Media] = []
         if not data["is_video"]:
             return videos

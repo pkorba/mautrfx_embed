@@ -10,15 +10,20 @@ class Tiktok:
     def __init__(self, loop: AbstractEventLoop):
         self.loop = loop
 
-    async def parse_preview(self, preview_raw: Any) -> ForumPost:
+    async def parse_preview(self, data: Any) -> ForumPost:
         """
-        Build a Post object for TikTok videos
-        :param preview_url: URL to video
-        :return: Post object
+        Build a ForumPost object for TikTok videos
+        :param data: HTML data of a webpage
+        :return: ForumPost object
         """
-        return await self.loop.run_in_executor(None, self._parse_tiktok_preview, preview_raw)
+        return await self.loop.run_in_executor(None, self._parse_tiktok_preview, data)
 
     def _parse_tiktok_preview(self, data: Any) -> ForumPost:
+        """
+        Build a ForumPost object for TikTok videos
+        :param data: HTML data of a webpage
+        :return: ForumPost object
+        """
         page = html.fromstring(data)
         if page is None:
             raise ValueError("Bad response")
