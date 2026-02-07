@@ -31,6 +31,8 @@ class Forum:
                 is_html
             )
         subtext = f"{user} on {sub}" if user and sub else ""
+        if subtext and post.is_comment:
+            subtext = f"comment by {subtext}"
         # HTML
         if is_html:
             flair = "<code>SPOILER</code> " if post.spoiler else ""

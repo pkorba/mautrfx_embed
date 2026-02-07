@@ -55,13 +55,14 @@ class Lemmy:
                 spoiler=False,
                 author=await self._parse_author(data["creator"], data["community"]),
                 author_url=data["creator"]["actor_id"],
-                url=data["comment"]["ap_id"],
+                url=f"{data["comment"]["ap_id"]}?scrollToComments=true",
                 comments=data["counts"]["child_count"],
                 photos=[],
                 videos=[],
                 qtype="lemmy",
                 name=f"🐹 {self.INSTANCE_NAME.sub(r"\g<base_url>", data["community"]["actor_id"])}",
                 is_link="text/html" in data["post"].get("url_content_type", ""),
+                is_comment=True
             )
 
         # Post
@@ -97,6 +98,7 @@ class Lemmy:
             qtype="lemmy",
             name=f"🐹 {self.INSTANCE_NAME.sub(r"\g<base_url>", data["community"]["actor_id"])}",
             is_link="text/html" in data["post"].get("url_content_type", ""),
+            is_comment=False
         )
 
     async def _parse_author(self, creator: Any, community: Any) -> str:

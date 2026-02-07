@@ -114,13 +114,13 @@ class SharedFmt:
         if post_date:
             if self.utils.config["localtime"]:
                 time_s = localtime(post_date)
-                tzone = ""
+                time_zone = ""
             else:
                 time_s = gmtime(post_date)
-                tzone = " UTC"
+                time_zone = " UTC"
             date = strftime('%Y-%m-%d %H:%M', time_s)
-            date_html = f"<b> • {date}{tzone}</b>"
-            date_md = f" **• {date}{tzone}**"
+            date_html = f"<b> • {date}{time_zone}</b>"
+            date_md = f" **• {date}{time_zone}**"
         # HTML
         if is_html:
             return f"<p><b>{name}</b>{date_html}</p>"

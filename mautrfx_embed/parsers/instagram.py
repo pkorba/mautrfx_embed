@@ -18,7 +18,11 @@ class Instagram:
         :param data: Website content of canonical URL
         :return: ForumPost object
         """
-        link, desc, image = await self.loop.run_in_executor(None, self._parse_canonical_page, data)
+        title, link, desc, image = await self.loop.run_in_executor(
+            None,
+            self._parse_canonical_page,
+            data
+        )
         if not link:
             raise ValueError("Bad response - missing canonical URL")
 
@@ -43,7 +47,7 @@ class Instagram:
             flair=None,
             sub=None,
             sub_url=None,
-            title="Instagram reel",
+            title=title if title else "Instagram reel",
             score=None,
             upvote_ratio=0,
             upvotes=None,
@@ -59,23 +63,25 @@ class Instagram:
             videos=videos,
             qtype="instagram",
             name="🖼️ Instagram",
-            is_link=False
+            is_link=False,
+            is_comment=False
         )
 
-    def _parse_canonical_page(self, data: Any) -> tuple[str, str, str]:
+    def _parse_canonical_page(self, data: Any) -> tuple[str, str, str, str]:
         """
-        Parse Instagram page and extrack link, description, and thumbnail from HTML
+        Parse Instagram page and extrack title, link, description, and thumbnail from HTML
         :param data: Instagram page
-        :return: link, description, thumbnail
+        :return: tuple with title, link, description, thumbnail
         """
         page = html.fromstring(data)
         if page is None:
             raise ValueError("Bad response")
-
+        title = page.xpath("//meta[@name='twitter:title']/@content")
+        title = title[0] if title else ""
         link = page.xpath("//link[@rel='canonical']/@href")
         link = link[0] if link else ""
         desc = page.xpath("//meta[@property='og:title']/@content")
         desc = desc[0] if desc else ""
         image = page.xpath("//meta[@name='twitter:image']/@content")
         image = image[0] if image else ""
-        return link, desc, image
+        return title, link, desc, image

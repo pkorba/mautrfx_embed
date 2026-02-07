@@ -95,3 +95,4 @@ class ForumPost:
     qtype: str
     name: str
     is_link: bool
+    is_comment: bool

@@ -45,7 +45,8 @@ class Reddit:
                 videos=[],
                 qtype="reddit",
                 name="👽 Reddit",
-                is_link=False
+                is_link=False,
+                is_comment=True
             )
 
         # Post
@@ -72,7 +73,8 @@ class Reddit:
             videos=await self._parse_videos(data),
             qtype="reddit",
             name="👽 Reddit",
-            is_link=data.get("post_hint") in ("link", "rich:video")
+            is_link=data.get("post_hint") in ("link", "rich:video"),
+            is_comment=False
         )
 
     async def _parse_text(self, text: str) -> str:

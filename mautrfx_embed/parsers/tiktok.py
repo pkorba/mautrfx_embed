@@ -67,5 +67,6 @@ class Tiktok:
             videos=videos,
             qtype="tiktok",
             name="🎞️ TikTok",
-            is_link=False
+            is_link=False,
+            is_comment=False
         )
