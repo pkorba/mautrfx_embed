@@ -30,6 +30,7 @@ You can configure the plugin in maubot's control panel.
 * `thumbnail_large` - maximum thumbnail size in pixels when there's only one image/video in a post/quote
 * `thumbnail_small` - maximum thumbnail size in pixels when there's more than one image/video in a post/quote
 * `forum_max_length` - maximum length of a Reddit/Lemmy post before its content is hidden in `<details>` disclosure widget. Applies to Reddit, Lemmy, Instagram, and TikTok posts.
+* `localtime`  - if `true` uses local time, if `false` uses UTC time zone (default `true`)
 
 Settings contain several whitelists with URLs for each of the supported services. The lists contain original service's addresses but can also contain URLs of alternative privacy frontends like Nitter or Redlib instances. You can freely add new or remove existing URLs from there. There are no lists for Mastodon and Lemmy because there are hundreds of instances of these, and it's impossible to list them all. That's why the plugin tries to recognize these purely based on a regular expression. This may lead to some false positives, but in that case the plugin will just fail silently.
 
