@@ -30,6 +30,7 @@ class Lemmy:
         # Comment
         if data.get("comment_view") is not None:
             data = data["comment_view"]
+            title, flair = await self._parse_title(data["post"]["name"])
             return ForumPost(
                 text=await self.loop.run_in_executor(
                     None,
@@ -41,10 +42,10 @@ class Lemmy:
                     self._parse_markdown,
                     data["comment"].get("content")
                 ),
-                flair=None,
+                flair=flair,
                 sub=f"c/{data["community"]["name"]}",
                 sub_url=data["community"]["actor_id"],
-                title=data["post"]["name"],
+                title=title,
                 score=None,
                 upvote_ratio=0,
                 upvotes=await self.utils.parse_interaction(data["counts"]["upvotes"]),
