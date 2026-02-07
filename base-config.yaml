@@ -5,6 +5,7 @@ show_nsfw: false
 thumbnail_large: 300
 thumbnail_small: 120
 forum_max_length: 1000
+localtime: true
 twitter_domains:
   - "x.com"
   - "twitter.com"

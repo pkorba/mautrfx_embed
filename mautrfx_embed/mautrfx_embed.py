@@ -29,6 +29,7 @@ class Config(BaseProxyConfig):
         helper.copy("thumbnail_large")
         helper.copy("thumbnail_small")
         helper.copy("forum_max_length")
+        helper.copy("localtime")
         helper.copy("twitter_domains")
         helper.copy("bluesky_domains")
         helper.copy("instagram_domains")

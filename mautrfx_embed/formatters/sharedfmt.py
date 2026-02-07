@@ -1,5 +1,5 @@
 import asyncio
-from time import strftime, localtime
+from time import strftime, localtime, gmtime
 
 from ..resources.datastructures import Media
 from ..resources.utils import Utilities
@@ -112,9 +112,15 @@ class SharedFmt:
         date_html = ""
         date_md = ""
         if post_date:
-            date = strftime('%Y-%m-%d %H:%M', localtime(post_date))
-            date_html = f"<b> • {date}</b>"
-            date_md = f" **• {date}**"
+            if self.utils.config["localtime"]:
+                time_s = localtime(post_date)
+                tzone = ""
+            else:
+                time_s = gmtime(post_date)
+                tzone = " UTC"
+            date = strftime('%Y-%m-%d %H:%M', time_s)
+            date_html = f"<b> • {date}{tzone}</b>"
+            date_md = f" **• {date}{tzone}**"
         # HTML
         if is_html:
             return f"<p><b>{name}</b>{date_html}</p>"

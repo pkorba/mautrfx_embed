@@ -1,5 +1,6 @@
 import io
-from time import strptime, mktime
+from calendar import timegm
+from time import strptime
 from typing import Any
 
 from PIL import Image, ImageFile, ImageFilter, UnidentifiedImageError
@@ -51,7 +52,7 @@ class Utilities:
         :return: seconds since Epoch
         """
         if created:
-            return int(mktime(strptime(created, "%Y-%m-%dT%H:%M:%S.%f%z")))
+            return int(timegm(strptime(created, "%Y-%m-%dT%H:%M:%S.%f%z")))
         return 0
 
     async def download_image(self, url: str) -> bytes | None:
