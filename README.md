@@ -17,6 +17,8 @@ A maubot plugin that passively scans your chats for links to X/Twitter, BlueSky,
 <img width="30%" height="30%" alt="mastodon" src="https://github.com/user-attachments/assets/644140b2-e432-4796-a3d9-8d783372a924" />
 <img width="30%" height="30%" alt="bsky" src="https://github.com/user-attachments/assets/214d307a-0e5f-4da6-a1e9-8c58745a08b6" />
 <img width="30%" height="30%" alt="twitter_translate" src="https://github.com/user-attachments/assets/9f7dcf9b-94e4-41fd-a1e3-090a59b93306" />
+<img width="30%" height="30%" alt="reddit" src="https://github.com/user-attachments/assets/36acdec1-2d64-4fdd-9d34-83b6b771ae1c" />
+<img width="30%" height="30%" alt="instagram" src="https://github.com/user-attachments/assets/081ad747-e486-4967-90b4-b5fc10c2bfa9" />
 
 ## Usage  
 Just paste a link in the chat. The bot will scan the message and if it matches the criteria, it will provide an embed.  
