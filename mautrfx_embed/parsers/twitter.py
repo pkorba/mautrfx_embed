@@ -8,44 +8,44 @@ class Twitter:
     def __init__(self, utils: Utilities):
         self.utils = utils
 
-    async def parse_preview(self, preview_raw: Any) -> BlogPost:
+    async def parse_preview(self, data: Any) -> BlogPost:
         """
         Parse JSON data from FxTwitter API
-        :param preview_raw: JSON data
+        :param data: JSON data
         :return: BlogPost object
         """
-        if not preview_raw["code"] == 200:
+        if not data["code"] == 200:
             raise ValueError("Bad response")
 
-        preview_raw = preview_raw["tweet"]
-        videos, photos = await self._parse_media(preview_raw)
-        translation = preview_raw.get("translation")
+        data = data["tweet"]
+        videos, photos = await self._parse_media(data)
+        translation = data.get("translation")
         return BlogPost(
-            text=preview_raw["raw_text"]["text"],
+            text=data["raw_text"]["text"],
             url=None,
             text_md=None,
-            replies=await self.utils.parse_interaction(preview_raw["replies"]),
-            reposts=await self.utils.parse_interaction(preview_raw["retweets"]),
-            likes=await self.utils.parse_interaction(preview_raw["likes"]),
-            views=await self.utils.parse_interaction(preview_raw["views"]),
+            replies=await self.utils.parse_interaction(data["replies"]),
+            reposts=await self.utils.parse_interaction(data["retweets"]),
+            likes=await self.utils.parse_interaction(data["likes"]),
+            views=await self.utils.parse_interaction(data["views"]),
             quotes=None,
-            community_note=await self._parse_community_note(preview_raw),
-            author_name=preview_raw["author"]["name"],
-            author_name_md=preview_raw["author"]["name"],
-            author_screen_name=preview_raw["author"]["screen_name"],
-            author_url=preview_raw["author"]["url"],
-            post_date=preview_raw["created_timestamp"],
+            community_note=await self._parse_community_note(data),
+            author_name=data["author"]["name"],
+            author_name_md=data["author"]["name"],
+            author_screen_name=data["author"]["screen_name"],
+            author_url=data["author"]["url"],
+            post_date=data["created_timestamp"],
             photos=photos,
             videos=videos,
-            facets=await self._parse_facets(preview_raw),
-            poll=await self._parse_poll(preview_raw),
+            facets=await self._parse_facets(data),
+            poll=await self._parse_poll(data),
             link=None,
-            quote=await self.parse_quote(preview_raw),
+            quote=await self.parse_quote(data),
             translation=translation["text"] if translation is not None else None,
             translation_lang=translation.get("source_lang_en") if translation is not None else None,
             qtype="twitter",
             name="✖️ X (Twitter)",
-            sensitive=preview_raw.get("possibly_sensitive", False),
+            sensitive=data.get("possibly_sensitive", False),
             spoiler_text=None
         )
 

@@ -10,20 +10,20 @@ class Bsky:
         self.loop = loop
         self.utils = utils
 
-    async def parse_preview(self, preview_raw: Any) -> BlogPost:
+    async def parse_preview(self, data: Any) -> BlogPost:
         """
         Parse JSON data from Bsky API
-        :param preview_raw: JSON data
+        :param data: JSON data
         :return: BlogPost object
         """
-        error = preview_raw.get("error")
+        error = data.get("error")
         if error is not None:
             raise ValueError("Bad response")
 
-        preview_raw = preview_raw["thread"]["post"]
+        data = data["thread"]["post"]
 
         # Multimedia and quotes
-        media = preview_raw.get("embed")
+        media = data.get("embed")
         photos: list[Media] = []
         videos: list[Media] = []
         link: Link = None
@@ -35,23 +35,23 @@ class Bsky:
             quote = await self.parse_quote(media)
 
         return BlogPost(
-            text=preview_raw["record"]["text"],
+            text=data["record"]["text"],
             url=None,
             text_md=None,
-            replies=await self.utils.parse_interaction(preview_raw["replyCount"]),
-            reposts=await self.utils.parse_interaction(preview_raw["repostCount"]),
-            likes=await self.utils.parse_interaction(preview_raw["likeCount"]),
+            replies=await self.utils.parse_interaction(data["replyCount"]),
+            reposts=await self.utils.parse_interaction(data["repostCount"]),
+            likes=await self.utils.parse_interaction(data["likeCount"]),
             views=None,
             quotes=None,
             community_note=None,
-            author_name=preview_raw["author"]["displayName"],
-            author_name_md=preview_raw["author"]["displayName"],
-            author_screen_name=preview_raw["author"]["handle"],
-            author_url="https://bsky.app/profile/" + preview_raw["author"]["handle"],
-            post_date=await self.utils.parse_date(preview_raw["record"]["createdAt"]),
+            author_name=data["author"]["displayName"],
+            author_name_md=data["author"]["displayName"],
+            author_screen_name=data["author"]["handle"],
+            author_url="https://bsky.app/profile/" + data["author"]["handle"],
+            post_date=await self.utils.parse_date(data["record"]["createdAt"]),
             photos=photos,
             videos=videos,
-            facets=await self._parse_facets(preview_raw["record"]),
+            facets=await self._parse_facets(data["record"]),
             poll=None,
             link=link,
             quote=quote,
@@ -59,7 +59,7 @@ class Bsky:
             translation_lang=None,
             qtype="bsky",
             name="🦋 Bluesky",
-            sensitive=len(preview_raw["labels"]) > 0,
+            sensitive=len(data["labels"]) > 0,
             spoiler_text=None
         )
 
