@@ -30,6 +30,7 @@ twitter_domains:
 bluesky_domains:
   - "bsky.app"
   - "fxbsky.app"
+  - "xbsky.app"
   - "blacksky.community"
   - "pinksky.app"
   - "azsky.app"
