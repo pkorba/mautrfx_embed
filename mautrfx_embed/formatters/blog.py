@@ -228,13 +228,13 @@ class Blog:
         link = await self.fmt.get_link(data.url, data.title, is_html)
         if is_html:
             # HTML
-            text += f"<blockquote><p><b>{link}</b></p>"
+            text += f"<blockquote><p>🔗 <b>{link}</b></p>"
             if data.description:
                 text += f"<p>{data.description}</p>"
             text += "</blockquote>"
         else:
             # Markdown
-            text += f"> > **{link}**"
+            text += f"> > 🔗 **{link}**"
             if data.description:
                 text += f"  \n> > {data.description}"
             text += "  \n>  \n"
