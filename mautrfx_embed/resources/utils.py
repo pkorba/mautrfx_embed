@@ -246,3 +246,16 @@ class Utilities:
         except (ValueError, MatrixResponseError) as e:
             self.bot.log.error(f"Uploading image to Matrix server: {e}")
             return ""
+
+    async def config_item_contains(self, name: str, item_key: str) -> bool:
+        """
+        Check if string occurs in a config's 'key' array
+        :param name: string the occurrence we check
+        :param item_key: key identifying the config array of values
+        :return: True if string is in the array, False otherwise
+        """
+        if not self.config[item_key]:
+            return False
+        if name.lower() in (fl.lower() for fl in self.config[item_key]):
+            return True
+        return False

@@ -6,6 +6,9 @@ thumbnail_large: 300
 thumbnail_small: 120
 forum_max_length: 1000
 localtime: true
+reddit_excluded_flairs:
+fedi_excluded_flairs:
+fedi_excluded_comment_flairs:
 twitter_domains:
   - "x.com"
   - "twitter.com"

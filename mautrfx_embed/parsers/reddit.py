@@ -37,6 +37,7 @@ class Reddit:
                 post_date=int(data["created"]),
                 nsfw=False,
                 spoiler=False,
+                skip_content=False,
                 author=data["author"],
                 author_url=f"https://www.reddit.com/u/{data["author"]}",
                 url=f"https://www.reddit.com{data["permalink"]}",
@@ -65,6 +66,10 @@ class Reddit:
             post_date=int(data["created"]),
             nsfw=data["over_18"],
             spoiler=data["spoiler"],
+            skip_content=await self.utils.config_item_contains(
+                data["link_flair_text"],
+                "reddit_excluded_flairs"
+            ),
             author=data["author"],
             author_url=f"https://www.reddit.com/u/{data["author"]}",
             url=data["url"],

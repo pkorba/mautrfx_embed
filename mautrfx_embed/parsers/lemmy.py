@@ -42,7 +42,7 @@ class Lemmy:
                     self._parse_markdown,
                     data["comment"].get("content")
                 ),
-                flair=flair,
+                flair=flair if flair.lower() != "spoiler" else "",
                 sub=f"c/{data["community"]["name"]}",
                 sub_url=data["community"]["actor_id"],
                 title=title,
@@ -52,7 +52,11 @@ class Lemmy:
                 downvotes=await self.utils.parse_interaction(data["counts"]["downvotes"]),
                 post_date=await self.utils.parse_date(data["comment"]["published"]),
                 nsfw=data["post"]["nsfw"],
-                spoiler=False,
+                spoiler=flair.lower() == "spoiler",
+                skip_content=await self.utils.config_item_contains(
+                    flair,
+                    "fedi_excluded_comment_flairs"
+                ),
                 author=await self._parse_author(data["creator"], data["community"]),
                 author_url=data["creator"]["actor_id"],
                 url=f"{data["comment"]["ap_id"]}?scrollToComments=true",
@@ -75,7 +79,7 @@ class Lemmy:
                 self._parse_markdown,
                 data["post"].get("body")
             ),
-            flair=flair,
+            flair=flair if flair.lower() != "spoiler" else "",
             sub=f"c/{data["community"]["name"]}",
             sub_url=data["community"]["actor_id"],
             title=title,
@@ -85,7 +89,8 @@ class Lemmy:
             downvotes=await self.utils.parse_interaction(data["counts"]["downvotes"]),
             post_date=await self.utils.parse_date(data["post"]["published"]),
             nsfw=data["post"]["nsfw"],
-            spoiler=False,
+            spoiler=flair.lower() == "spoiler",
+            skip_content=await self.utils.config_item_contains(flair, "fedi_excluded_flairs"),
             author=await self._parse_author(data["creator"], data["community"]),
             author_url=data["creator"]["actor_id"],
             url=(

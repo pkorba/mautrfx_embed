@@ -86,6 +86,7 @@ class ForumPost:
     post_date: int
     nsfw: bool
     spoiler: bool
+    skip_content: bool
     author: str
     author_url: str
     url: str

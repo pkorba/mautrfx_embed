@@ -53,11 +53,15 @@ class Forum:
         :param is_html: True for HTML, False for Markdown
         :return: Post text content
         """
-        if not data.text or data.spoiler:
+        if not data.text or data.spoiler or data.skip_content:
             return ""
         if is_html:
             if len(data.text) > self.utils.config["forum_max_length"]:
-                return f"<details><summary><b>Post content:</b> </summary><br>{data.text}</details>"
+                link_type = "Comment" if data.is_comment else "Post"
+                return (
+                    f"<details><summary><b>{link_type} content:</b> </summary>"
+                    f"<br>{data.text}</details>"
+                )
             return data.text
         return f"> {data.text_md.replace("\n", "\n> ")}  \n>  \n"
 

@@ -59,6 +59,7 @@ class Tiktok:
             post_date=None,
             nsfw=False,
             spoiler=False,
+            skip_content=False,
             author=None,
             author_url=None,
             url=video,
