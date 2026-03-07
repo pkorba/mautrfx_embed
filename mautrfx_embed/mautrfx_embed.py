@@ -298,7 +298,7 @@ class MautrFxEmbedBot(Plugin):
         body += await self.forum.get_text(post, False)
 
         # Multimedia previews only for HTML version
-        if not post.spoiler:
+        if not post.spoiler and not post.skip_content:
             html += await self.sharedfmt.get_media_previews(
                 post.photos,
                 post.videos,
