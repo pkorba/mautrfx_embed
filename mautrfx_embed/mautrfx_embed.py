@@ -42,25 +42,26 @@ class Config(BaseProxyConfig):
 
 
 class MautrFxEmbedBot(Plugin):
-    TWITTER_URL = re.compile(r"https://.+?\.[A-Za-z]+/[A-Za-z0-9_]+/status/\d+")
+    TWITTER_URL = re.compile(r"https://[^/]+/[A-Za-z0-9_]+/status/\d+")
     BLUESKY_URL = re.compile(
-        r"https://.+?\.[A-Za-z]+(/profile)?/@?(?P<username>[A-Za-z0-9:.-]+)/"
-        r"(app\.bsky\.feed\.)?post/(?P<post_id>[A-Za-z0-9]+)"
+        r"https://[^/]+(?:/profile)?/@?(?P<username>[A-Za-z0-9:.-]+)/"
+        r"(?:app\.bsky\.feed\.)?post/(?P<post_id>[A-Za-z0-9]+)"
     )
     MASTODON_URL = re.compile(
-        r"(?P<base_url>https://.+?\.[A-Za-z]+)/@[A-Za-z0-9_]+/(?P<status_id>[0-9]+)"
+        r"(?P<base_url>https://[^/]+)/@[A-Za-z0-9_]+/(?P<status_id>[0-9]+)"
     )
     REDDIT_URL = re.compile(
-        r"https://.+?\.[A-Za-z]+(/r/[A-Za-z0-9_.]+)?(/comments)?/(?P<post_id>[A-Za-z0-9]+)"
-        r"(/.*?/(?P<comment_id>[A-Za-z0-9]+))?"
+        r"https://[^/]+(?:/r/[A-Za-z0-9_.]+)?(?:/comments)?/"
+        r"(?P<post_id>[A-Za-z0-9]+)(?:/[^/]*?/(?P<comment_id>[A-Za-z0-9]+))?"
     )
     LEMMY_URL = re.compile(
-        r"(?P<base_url>https://.+?\.[A-Za-z]+)/"
-        r"(post/(?P<post_id>\d+)/?(?P<comment_id>\d+)?|comment/(?P<comment_id2>\d+))"
+        r"^(?P<base_url>https://[^/]+)/"
+        r"(?:post/(?P<post_id>\d+)(?:/(?P<comment_id>\d+))?|comment/(?P<comment_id2>\d+))"
+        r"/?(?:\?[^#]*)?$"
     )
     PIEFED_URL = re.compile(
-        r"(?P<base_url>https://.+?\.[A-Za-z]+)/"
-        r"(c/[A-Za-z0-9_.]+/p/(?P<post_id>[A-Za-z0-9]+)|post/\d+[/#]comment[/_](?P<comment_id>\d+))"
+        r"(?P<base_url>https://[^/]+)/"
+        r"(?:c/[A-Za-z0-9_.]+/p/(?P<post_id>\d+)|post/\d+[/#]comment[/_](?P<comment_id>\d+))"
     )
 
     utils = None
