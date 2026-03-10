@@ -16,6 +16,7 @@ from .parsers.reddit import Reddit
 from .parsers.instagram import Instagram
 from .parsers.tiktok import Tiktok
 from .parsers.lemmy import Lemmy
+from .parsers.piefed import Piefed
 from .resources.datastructures import BlogPost, ForumPost
 from .resources.utils import Utilities
 
@@ -54,7 +55,12 @@ class MautrFxEmbedBot(Plugin):
         r"(/.*?/(?P<comment_id>[A-Za-z0-9]+))?"
     )
     LEMMY_URL = re.compile(
-        r"(?P<base_url>https://.+?\.[A-Za-z]+)/post/(?P<post_id>\d+)/?(?P<comment_id>\d+)?"
+        r"(?P<base_url>https://.+?\.[A-Za-z]+)/"
+        r"(post/(?P<post_id>\d+)/?(?P<comment_id>\d+)?|comment/(?P<comment_id2>\d+))"
+    )
+    PIEFED_URL = re.compile(
+        r"(?P<base_url>https://.+?\.[A-Za-z]+)/"
+        r"(c/[A-Za-z0-9_.]+/p/(?P<post_id>[A-Za-z0-9]+)|post/\d+[/#]comment[/_](?P<comment_id>\d+))"
     )
 
     utils = None
@@ -93,7 +99,8 @@ class MautrFxEmbedBot(Plugin):
             "reddit": Reddit(utils=self.utils),
             "instagram": Instagram(loop=self.loop, utils=self.utils),
             "tiktok": Tiktok(loop=self.loop),
-            "lemmy": Lemmy(loop=self.loop, utils=self.utils)
+            "lemmy": Lemmy(loop=self.loop, utils=self.utils),
+            "piefed": Piefed(loop=self.loop, utils=self.utils)
         }
 
     @command.passive(r"(https://\S+)", multiple=True)
@@ -133,7 +140,8 @@ class MautrFxEmbedBot(Plugin):
             self._handle_tiktok,
             self._handle_reddit,
             self._handle_mastodon,
-            self._handle_lemmy
+            self._handle_lemmy,
+            self._handle_piefed
         ]
         for _, url in urls:
             for handler in handlers:
@@ -194,9 +202,20 @@ class MautrFxEmbedBot(Plugin):
     async def _handle_lemmy(self, url: str) -> tuple[str, str] | None:
         m = self.LEMMY_URL.match(url)
         if m is not None:
-            if m.group("comment_id"):
-                return "lemmy", f"{m.group("base_url")}/api/v3/comment?id={m.group("comment_id")}"
+            comment = m.group("comment_id") if m.group("comment_id") else m.group("comment_id2")
+            if comment:
+                return "lemmy", f"{m.group("base_url")}/api/v3/comment?id={comment}"
             return "lemmy", f"{m.group("base_url")}/api/v3/post?id={m.group("post_id")}"
+        return None
+
+    async def _handle_piefed(self, url: str) -> tuple[str, str] | None:
+        m = self.PIEFED_URL.match(url)
+        if m is not None:
+            if m.group("comment_id"):
+                return (
+                    "piefed", f"{m.group("base_url")}/api/alpha/comment?id={m.group("comment_id")}"
+                )
+            return "piefed", f"{m.group("base_url")}/api/alpha/post?id={m.group("post_id")}"
         return None
 
     async def _parse_preview(self, preview_raw: Any, service: str) -> BlogPost | ForumPost | None:

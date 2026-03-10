@@ -1,8 +1,10 @@
 import io
+import re
 from calendar import timegm
 from time import strptime
 from typing import Any
 
+import markdown
 from PIL import Image, ImageFile, ImageFilter, UnidentifiedImageError
 from aiohttp import ClientTimeout, ClientError
 from mautrix.errors import MatrixResponseError
@@ -12,6 +14,13 @@ from .datastructures import Media
 
 
 class Utilities:
+    INSTANCE_NAME = re.compile(r"https://(www\.)?(?P<base_url>.+?)/.*")
+    SPOILER_TAG = re.compile(r":::\s?spoiler\s(.*?)\n(.*?)\n:::", flags=re.I | re.DOTALL)
+    INLINE_SPOILER_TAG = re.compile(r"\|\|(.*?)\|\|", re.DOTALL)
+    EMPTY_LINK = re.compile(r"\[]\((.+?)\)")
+    FLAIRS_TITLE = re.compile(r"^(?P<flairs>(\[[A-Za-z0-9\s]+?]\s?)*)(?P<title>.*)")
+    FLAIR_LIST = re.compile(r"\[(.*?)]")
+
     def __init__(
             self,
             bot: Plugin,
@@ -247,15 +256,76 @@ class Utilities:
             self.bot.log.error(f"Uploading image to Matrix server: {e}")
             return ""
 
-    async def config_item_contains(self, name: str, item_key: str) -> bool:
+    async def config_item_contains(self, elems: list[str], item_key: str) -> bool:
         """
-        Check if string occurs in a config's 'key' array
-        :param name: string the occurrence we check
-        :param item_key: key identifying the config array of values
-        :return: True if string is in the array, False otherwise
+        Check if any of string from list of elems occurs in a config's 'key' list
+        :param elems: a list of string the occurrence we check for
+        :param item_key: key identifying the config list of values
+        :return: True if any of the strings is in the list, False otherwise
         """
         if not self.config[item_key]:
             return False
-        if name.lower() in (fl.lower() for fl in self.config[item_key]):
-            return True
+        for elem in elems:
+            if elem.lower() in (fl.lower() for fl in self.config[item_key]):
+                return True
         return False
+
+    async def fedi_forum_parse_title(self, title: str) -> tuple[str, list]:
+        """
+        Split title string into title and flair
+        :param title: Raw title string from API
+        :return: tuple with title and flair
+        """
+        flairs_str = ""
+        flairs: list[str] = []
+        m_title = self.FLAIRS_TITLE.match(title)
+        if m_title:
+            flairs_str = m_title.group("flairs")
+            title = m_title.group("title")
+        if flairs_str:
+            flairs = self.FLAIR_LIST.findall(flairs_str)
+        return title, flairs
+
+    def fedi_forum_parse_text(self, text: str) -> str:
+        """
+        Parse Markdown text of a post and convert it into HTML
+        :param text: Markdown body of a post
+        :return: HTML text
+        """
+        if not text:
+            return ""
+        # Don't try to display inline images, fix escaping, fix newlines
+        text = text.replace("![", "[").replace("\\", "").replace("\n", "  \n")
+        # For links with no alt text use the URL because they're not visible otherwise
+        text = self.EMPTY_LINK.sub(r"[\1](\1)", text)
+        # Fix custom spoiler tags that markdown lib can't convert on its own
+        text = self.SPOILER_TAG.sub(
+            r"<details markdown='1'><summary markdown='1'>\1 </summary>\2</details>",
+            text
+        )
+        text = self.INLINE_SPOILER_TAG.sub(
+            r"<span data-mx-spoiler markdown='1'>\1</span>",
+            text
+        )
+        text = markdown.markdown(
+            text,
+            extensions=["tables", "fenced_code", "md_in_html"],
+            output_format="html"
+        )
+        return text
+
+    def fedi_forum_parse_markdown(self, text: str) -> str:
+        """
+        Removes unnecessary characters from Markdown body of a post
+        :param text: Markdown body of a post
+        :return: cleaned Markdown text
+        """
+        if not text:
+            return ""
+        # Fix custom spoiler tags
+        text = self.SPOILER_TAG.sub(r"[\1] ||\2||", text)
+        # Don't try to display inline images and replace faulty newlines
+        text = text.replace("![", "[").replace("\\", "").replace("\n", "  \n")
+        # For links with no alt text use the URL because they're not visible otherwise
+        text = self.EMPTY_LINK.sub(r"[\1](\1)", text)
+        return text

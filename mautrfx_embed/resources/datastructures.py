@@ -75,7 +75,7 @@ class BlogPost:
 class ForumPost:
     text: str
     text_md: str
-    flair: str
+    flairs: list[str]
     sub: str
     sub_url: str
     title: str

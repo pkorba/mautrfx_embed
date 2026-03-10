@@ -26,7 +26,7 @@ class Reddit:
             return ForumPost(
                 text=await self._parse_text(data.get("body_html", "")),
                 text_md=await self._parse_markdown(data["body"]),
-                flair=None,
+                flairs=[],
                 sub=data["subreddit_name_prefixed"],
                 sub_url=f"https://www.reddit.com/{data["subreddit_name_prefixed"]}",
                 title="Comment permalink",
@@ -55,7 +55,7 @@ class Reddit:
         return ForumPost(
             text=await self._parse_text(data.get("selftext_html", "")),
             text_md=await self._parse_markdown(data["selftext"]),
-            flair=data["link_flair_text"],
+            flairs=[data["link_flair_text"]],
             sub=data["subreddit_name_prefixed"],
             sub_url=f"https://www.reddit.com/{data["subreddit_name_prefixed"]}",
             title=data["title"],
@@ -67,7 +67,7 @@ class Reddit:
             nsfw=data["over_18"],
             spoiler=data["spoiler"],
             skip_content=await self.utils.config_item_contains(
-                data["link_flair_text"],
+                [data["link_flair_text"]],
                 "reddit_excluded_flairs"
             ),
             author=data["author"],

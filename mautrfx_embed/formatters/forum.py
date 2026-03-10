@@ -36,14 +36,14 @@ class Forum:
         # HTML
         if is_html:
             flair = "<code>SPOILER</code> " if post.spoiler else ""
-            flair += f"<code>{post.flair.title()}</code> " if post.flair else ""
+            flair += " ".join(f"<code>{fl.title()}</code>" for fl in post.flairs)
             subtext = f"<br>{subtext}" if subtext else ""
-            return f"<p>{flair}<b>{title}</b>{subtext}</p>"
+            return f"<p>{flair} <b>{title}</b>{subtext}</p>"
         # Markdown
         flair = "`SPOILER` " if post.spoiler else ""
-        flair += f"`{post.flair.title()}` " if post.flair else ""
+        flair += " ".join(f"`{fl.title()}`" for fl in post.flairs)
         subtext = f"  \n> {subtext}" if subtext else ""
-        return f"> {flair}**{title}**{subtext}  \n>  \n"
+        return f"> {flair} **{title}**{subtext}  \n>  \n"
 
     async def get_text(self, data: ForumPost, is_html: bool = True) -> str:
         """

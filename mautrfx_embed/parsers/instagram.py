@@ -44,7 +44,7 @@ class Instagram:
         return ForumPost(
             text=f"<p>{desc.replace('\n', '<br>')}</p>" if desc else "",
             text_md=desc,
-            flair=None,
+            flairs=[],
             sub=None,
             sub_url=None,
             title=title if title else "Instagram reel",

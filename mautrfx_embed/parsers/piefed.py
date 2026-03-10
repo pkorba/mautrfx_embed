@@ -5,34 +5,37 @@ from ..resources.datastructures import ForumPost, Media
 from ..resources.utils import Utilities
 
 
-class Lemmy:
+class Piefed:
     def __init__(self, loop: AbstractEventLoop, utils: Utilities):
         self.loop = loop
         self.utils = utils
 
     async def parse_preview(self, data: Any) -> ForumPost:
         """
-        Parse JSON data from Lemmy API
+        Parse JSON data from Piefed API
         :param data: JSON data
         :return: ForumPost object
         """
-        if data.get("error"):
+        if data.get("code"):
             raise ValueError("Bad response")
 
         # Comment
         if data.get("comment_view"):
             data = data["comment_view"]
-            title, flairs = await self.utils.fedi_forum_parse_title(data["post"]["name"])
+            title, lemmy_flairs = await self.utils.fedi_forum_parse_title(data["post"]["title"])
+            # Flair logic explained below, in the Post branch
+            flairs = await self._get_flairs(data)
+            flairs = flairs if flairs else lemmy_flairs
             return ForumPost(
                 text=await self.loop.run_in_executor(
                     None,
                     self.utils.fedi_forum_parse_text,
-                    data["comment"].get("content")
+                    data["comment"].get("body")
                 ),
                 text_md=await self.loop.run_in_executor(
                     None,
                     self.utils.fedi_forum_parse_markdown,
-                    data["comment"].get("content")
+                    data["comment"].get("body")
                 ),
                 flairs=[fl for fl in flairs if fl.lower() != "spoiler"],
                 sub=f"c/{data["community"]["name"]}",
@@ -51,22 +54,28 @@ class Lemmy:
                 ),
                 author=await self._parse_author(data["creator"], data["community"]),
                 author_url=data["creator"]["actor_id"],
+                # scrollToComments - Piefed doesn't need it, but useful if it's a Lemmy link in here
                 url=f"{data["comment"]["ap_id"]}?scrollToComments=true",
                 comments=data["counts"]["child_count"],
                 photos=[],
                 videos=[],
-                qtype="lemmy",
-                name=f"🐹 {self.utils.INSTANCE_NAME.sub(
+                qtype="piefed",
+                name=f"🥧 {self.utils.INSTANCE_NAME.sub(
                     r"\g<base_url>",
                     data["community"]["actor_id"]
                 )}",
-                is_link="text/html" in data["post"].get("url_content_type", ""),
+                is_link=data["post"].get("post_type") == "Link",
                 is_comment=True
             )
 
         # Post
         data = data["post_view"]
-        title, flairs = await self.utils.fedi_forum_parse_title(data["post"]["name"])
+        title, lemmy_flairs = await self.utils.fedi_forum_parse_title(data["post"]["title"])
+        # Piefed has its own implementation of flairs but can display Lemmy posts too
+        # and those can have flairs as a part of the title. If Piefed-style flairs
+        # exist, we use these. Otherwise, we check for flairs within the title
+        flairs = await self._get_flairs(data)
+        flairs = flairs if flairs else lemmy_flairs
         return ForumPost(
             text=await self.loop.run_in_executor(
                 None,
@@ -99,14 +108,27 @@ class Lemmy:
             comments=data["counts"]["comments"],
             photos=await self._parse_photos(data),
             videos=await self._parse_videos(data),
-            qtype="lemmy",
-            name=f"🐹 {self.utils.INSTANCE_NAME.sub(
+            qtype="piefed",
+            name=f"🥧 {self.utils.INSTANCE_NAME.sub(
                 r"\g<base_url>",
                 data["community"]["actor_id"]
             )}",
-            is_link="text/html" in data["post"].get("url_content_type", ""),
+            is_link=data["post"].get("post_type") == "Link",
             is_comment=False
         )
+
+    async def _get_flairs(self, data: Any) -> list[str]:
+        """
+        Get a list of flairs (Piefed-style)
+        :param data: JSON data from API
+        :return: list of flairs
+        """
+        flairs: list[str] = []
+        if not data:
+            return flairs
+        flair_list = data.get("flair_list", [])
+        flairs = [flair["flair_title"] for flair in flair_list]
+        return flairs
 
     async def _parse_author(self, creator: Any, community: Any) -> str:
         """
@@ -118,8 +140,7 @@ class Lemmy:
         community_url = self.utils.INSTANCE_NAME.sub(r"\g<base_url>", community["actor_id"])
         creator_url = self.utils.INSTANCE_NAME.sub(r"\g<base_url>", creator["actor_id"])
         base_url = "" if community_url == creator_url else f"@{creator_url}"
-        return f"{creator["name"]}{base_url}"
-
+        return f"{creator["title"]}{base_url}"
 
     async def _parse_photos(self, data: Any) -> list[Media]:
         """
@@ -128,13 +149,13 @@ class Lemmy:
         :return: list of images
         """
         photos: list[Media] = []
-        details = data.get("image_details")
-        if details:
+        details = data["post"].get("image_details")
+        if details and data["post"].get("post_type") == "Image":
             photo = Media(
                 width=details["width"],
                 height=details["height"],
-                url=details["link"],
-                thumbnail_url=details["link"],
+                url=data["post"]["url"],
+                thumbnail_url=data["post"]["thumbnail_url"],
                 filetype="p"
             )
             photos.append(photo)
@@ -152,12 +173,13 @@ class Lemmy:
         """
         photo = None
         thumbnail_url = data["post"].get("thumbnail_url")
+        details = data["post"].get("image_details")
         if thumbnail_url:
             # Use main url because thumbnail will serve as link
             # and this will be the link's destination
             photo = Media(
-                width=0,
-                height=0,
+                width=details["width"] if details else 0,
+                height=details["height"] if details else 0,
                 url=data["post"]["url"],
                 thumbnail_url=thumbnail_url,
                 filetype="p"
@@ -171,18 +193,7 @@ class Lemmy:
         :return: video
         """
         videos: list[Media] = []
-        is_video = data["post"].get("url_content_type", "") in (
-            "video/x-msvideo",
-            "video/mp4",
-            "video/mpeg",
-            "video/ogg",
-            "video/webm",
-            "video/mp2t",
-            "video/3gpp",
-            "video/3gpp2",
-            "video/matroska"
-        )
-        if is_video:
+        if data["post"].get("post_type") == "Video":
             video = Media(
                 width=0,
                 height=0,
