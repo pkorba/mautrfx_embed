@@ -254,7 +254,7 @@ class Mastodon:
                 choices.append(choice)
             if not poll_raw["expired"]:
                 expires_at = await self.utils.parse_date(poll_raw["expires_at"])
-                status = await self._get_poll_status(expires_at)
+                status = await self.utils.get_poll_status(expires_at)
             else:
                 status = "Final results"
             poll = Poll(
@@ -264,29 +264,6 @@ class Mastodon:
                 choices=choices
             )
         return poll
-
-    async def _get_poll_status(self, expires_at: int) -> str:
-        """
-        Calculate time difference between current time and poll's expiration time
-        :param expires_at: seconds since Epoch marking the end time when poll closes
-        :return: human friendly string indicating how much time is left until the poll closes
-        """
-        time_diff = expires_at - int(time.time())
-        time_diff = time_diff if time_diff > 0 else 0
-        d = divmod(time_diff, 86400)  # days
-        h = divmod(d[1], 3600)  # hours
-        m = divmod(h[1], 60)  # minutes
-        s = m[1]  # seconds
-        if d[0]:
-            status = f"{d[0]} day{"s" if d[0] > 1 else ""} left"
-        elif h[0]:
-            round_up = 1 if m[0] > 30 else 0
-            status = f"{h[0] + round_up} hour{"s" if h[0] + round_up > 1 else ""} left"
-        elif m[0]:
-            status = f"{m[0] + 1} minutes left"
-        else:
-            status = f"{s + 1} second{"s" if s > 0 else ""} left"
-        return status
 
     async def _replace_emoji_codes(self, emojis: list[Any], text: str) -> str:
         """

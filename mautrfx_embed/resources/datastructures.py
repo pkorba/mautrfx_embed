@@ -93,6 +93,7 @@ class ForumPost:
     comments: int
     photos: list[Media]
     videos: list[Media]
+    poll: Poll
     qtype: str
     name: str
     is_link: bool

@@ -257,8 +257,8 @@ class MautrFxEmbedBot(Plugin):
         body += await self.blog.get_translation(post, False)
 
         # Poll
-        html += await self.blog.get_poll(post)
-        body += await self.blog.get_poll(post, False)
+        html += await self.sharedfmt.get_poll(post.poll)
+        body += await self.sharedfmt.get_poll(post.poll, False)
 
         # Multimedia previews only for HTML version
         html += await self.sharedfmt.get_media_previews(post.photos, post.videos, post.sensitive)
@@ -316,6 +316,10 @@ class MautrFxEmbedBot(Plugin):
         # Text
         html += await self.forum.get_text(post)
         body += await self.forum.get_text(post, False)
+
+        # Poll
+        html += await self.sharedfmt.get_poll(post.poll)
+        body += await self.sharedfmt.get_poll(post.poll, False)
 
         # Multimedia previews only for HTML version
         if not post.spoiler and not post.skip_content:

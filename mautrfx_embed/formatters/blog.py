@@ -95,44 +95,6 @@ class Blog:
             f"> > 📝 **Translated {src_lang}**  \n"
             f"> > {data.translation.replace('\n', '  \n> > ')}  \n>  \n")
 
-    async def get_poll(self, data: BlogPost, is_html: bool = True) -> str:
-        """
-        Get message part that contains poll
-        :param data: BlogPost data
-        :param is_html: True for HTML, False for Markdown
-        :return: formatted string with poll
-        """
-        if not data.poll:
-            return ""
-
-        poll = []
-        for choice in data.poll.choices:
-            if is_html:
-                poll.append(
-                    f"{await self._get_chart_bar(choice.percentage)}"
-                    f"<br>{choice.percentage}% {choice.label}"
-                )
-            else:
-                poll.append(
-                    f"> > {await self._get_chart_bar(choice.percentage)}  \n"
-                    f"> > {choice.percentage}% {choice.label}  \n"
-                )
-        # HTML
-        if is_html:
-            return (
-                f"<blockquote>"
-                f"<p>{'<br>'.join(poll)}</p>"
-                f"<p>{data.poll.total_voters:,} voters • {data.poll.status}</p>"
-                f"</blockquote>"
-                .replace(",", " ")
-            )
-        # Markdown
-        return (
-            f"{''.join(poll)}> >  \n"
-            f"> > {data.poll.total_voters:,} voters • {data.poll.status}  \n>  \n"
-            .replace(",", " ")
-        )
-
     async def get_quote(self, data: BlogPost, is_html: bool = True) -> str:
         """
         Get message part with quote post
@@ -146,7 +108,7 @@ class Blog:
         text += await self.get_quote_author(data, is_html)
         res = await self.get_text(data, is_html)
         text += res if is_html else res.replace("> ", "> > ")
-        res = await self.get_poll(data, is_html)
+        res = await self.fmt.get_poll(data.poll, is_html)
         text += res if is_html else res.replace("> > ", "> > > ")
         if is_html:
             text += await self.fmt.get_media_previews(data.photos, data.videos, data.sensitive)
@@ -315,14 +277,3 @@ class Blog:
         # Append the remaining text
         text_array.append(text[start:])
         return b"".join(text_array).decode("utf-8") if qtype == "bsky" else "".join(text_array)
-
-    async def _get_chart_bar(self, percentage: float) -> str:
-        """
-        Get ASCII chart bar to represent result in a poll
-        :param percentage: percentage of votes (0-100)
-        :return: ASCII chart bar
-        """
-        dark_block = "█"
-        light_block = "░"
-        dark_num = round(percentage * 16 / 100)
-        return f"{dark_num * dark_block + (16 - dark_num) * light_block}"

@@ -1,7 +1,8 @@
+import time
 from asyncio import AbstractEventLoop
 from typing import Any
 
-from ..resources.datastructures import ForumPost, Media
+from ..resources.datastructures import ForumPost, Media, Poll, Choice
 from ..resources.utils import Utilities
 
 
@@ -59,6 +60,7 @@ class Piefed:
                 comments=data["counts"]["child_count"],
                 photos=[],
                 videos=[],
+                poll=None,
                 qtype="piefed",
                 name=f"🥧 {self.utils.INSTANCE_NAME.sub(
                     r"\g<base_url>",
@@ -108,6 +110,7 @@ class Piefed:
             comments=data["counts"]["comments"],
             photos=await self._parse_photos(data),
             videos=await self._parse_videos(data),
+            poll=await self._parse_poll(data),
             qtype="piefed",
             name=f"🥧 {self.utils.INSTANCE_NAME.sub(
                 r"\g<base_url>",
@@ -116,6 +119,40 @@ class Piefed:
             is_link=data["post"].get("post_type") == "Link",
             is_comment=False
         )
+
+    async def _parse_poll(self, data: Any) -> Poll:
+        """
+        Extract poll data from JSON
+        :param data: post's JSON from Mastodon API
+        :return: Poll object
+        """
+        poll = None
+        poll_raw = data["post"].get("poll")
+        if poll_raw:
+            choices: list[Choice] = []
+            voters_count = sum((elem["num_votes"] for elem in poll_raw["choices"]))
+            for option in poll_raw["choices"]:
+                choice = Choice(
+                    label=option["choice_text"],
+                    votes_count=option["num_votes"],
+                    percentage=round(option["num_votes"] / voters_count * 100, 1),
+                )
+                choices.append(choice)
+
+            expires_at = await self.utils.parse_date(poll_raw["end_poll"])
+            now = int(time.time())
+            if expires_at > now:
+                expires_at = await self.utils.parse_date(poll_raw["expires_at"])
+                status = await self.utils.get_poll_status(expires_at)
+            else:
+                status = "Final results"
+            poll = Poll(
+                ends_at=poll_raw["end_poll"],
+                status=status,
+                total_voters=voters_count,
+                choices=choices
+            )
+        return poll
 
     async def _get_flairs(self, data: Any) -> list[str]:
         """

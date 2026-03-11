@@ -1,7 +1,7 @@
 import asyncio
 from time import strftime, localtime, gmtime
 
-from ..resources.datastructures import Media
+from ..resources.datastructures import Media, Poll
 from ..resources.utils import Utilities
 
 
@@ -100,6 +100,55 @@ class SharedFmt:
             # Markdown
             return f"> **{title}:** {', '.join(media_formatted)}  \n>  \n"
         return ""
+
+    async def get_poll(self, poll_obj: Poll, is_html: bool = True) -> str:
+        """
+        Get message part that contains poll
+        :param poll_obj: BlogPost data
+        :param is_html: True for HTML, False for Markdown
+        :return: formatted string with poll
+        """
+        if not poll_obj:
+            return ""
+
+        poll = []
+        for choice in poll_obj.choices:
+            if is_html:
+                poll.append(
+                    f"{await self._get_chart_bar(choice.percentage)}"
+                    f"<br>{choice.percentage}% {choice.label}"
+                )
+            else:
+                poll.append(
+                    f"> > {await self._get_chart_bar(choice.percentage)}  \n"
+                    f"> > {choice.percentage}% {choice.label}  \n"
+                )
+        # HTML
+        if is_html:
+            return (
+                f"<blockquote>"
+                f"<p>{'<br>'.join(poll)}</p>"
+                f"<p>{poll_obj.total_voters:,} voters • {poll_obj.status}</p>"
+                f"</blockquote>"
+                .replace(",", " ")
+            )
+        # Markdown
+        return (
+            f"{''.join(poll)}> >  \n"
+            f"> > {poll_obj.total_voters:,} voters • {poll_obj.status}  \n>  \n"
+            .replace(",", " ")
+        )
+
+    async def _get_chart_bar(self, percentage: float) -> str:
+        """
+        Get ASCII chart bar to represent result in a poll
+        :param percentage: percentage of votes (0-100)
+        :return: ASCII chart bar
+        """
+        dark_block = "█"
+        light_block = "░"
+        dark_num = round(percentage * 16 / 100)
+        return f"{dark_num * dark_block + (16 - dark_num) * light_block}"
 
     async def get_footer(self, name: str, post_date: int, is_html: bool = True) -> str:
         """

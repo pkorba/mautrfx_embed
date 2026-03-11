@@ -66,6 +66,7 @@ class Tiktok:
             comments=0,
             photos=[],
             videos=videos,
+            poll=None,
             qtype="tiktok",
             name="🎞️ TikTok",
             is_link=False,

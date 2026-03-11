@@ -62,6 +62,7 @@ class Instagram:
             comments=0,
             photos=[],
             videos=videos,
+            poll=None,
             qtype="instagram",
             name="🖼️ Instagram",
             is_link=False,

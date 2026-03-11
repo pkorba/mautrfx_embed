@@ -55,6 +55,7 @@ class Lemmy:
                 comments=data["counts"]["child_count"],
                 photos=[],
                 videos=[],
+                poll=None,
                 qtype="lemmy",
                 name=f"🐹 {self.utils.INSTANCE_NAME.sub(
                     r"\g<base_url>",
@@ -99,6 +100,7 @@ class Lemmy:
             comments=data["counts"]["comments"],
             photos=await self._parse_photos(data),
             videos=await self._parse_videos(data),
+            poll=None,
             qtype="lemmy",
             name=f"🐹 {self.utils.INSTANCE_NAME.sub(
                 r"\g<base_url>",
