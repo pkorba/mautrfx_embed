@@ -15,7 +15,7 @@ from .datastructures import Media
 
 class Utilities:
     INSTANCE_NAME = re.compile(r"https://(www\.)?(?P<base_url>.+?)/.*")
-    SPOILER_TAG = re.compile(r":::\s?spoiler\s(.*?)\n(.*?)\n:::", flags=re.I | re.DOTALL)
+    SPOILER_TAG = re.compile(r":::\s?spoiler\s(?:(.*?)\n)?(.*?):::", flags=re.I | re.DOTALL)
     INLINE_SPOILER_TAG = re.compile(r"\|\|(.*?)\|\|", re.DOTALL)
     EMPTY_LINK = re.compile(r"\[]\((.+?)\)")
     FLAIRS_TITLE = re.compile(r"^(?P<flairs>(\[[A-Za-z0-9\s]+?]\s?)*)(?P<title>.*)")
