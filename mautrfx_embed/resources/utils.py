@@ -19,7 +19,7 @@ class Utilities:
     SPOILER_TAG = re.compile(r":::\s?spoiler\s(?:(.*?)\n)?(.*?):::", flags=re.I | re.DOTALL)
     INLINE_SPOILER_TAG = re.compile(r"\|\|(.*?)\|\|", re.DOTALL)
     EMPTY_LINK = re.compile(r"\[]\((.+?)\)")
-    FLAIRS_TITLE = re.compile(r"^(?P<flairs>(\[[A-Za-z0-9\s]+?]\s?)*)(?P<title>.*)")
+    FLAIRS_TITLE = re.compile(r"^(?P<flairs>(?:\[[^\[\]]+?]\s?)*)(?P<title>.*)")
     FLAIR_LIST = re.compile(r"\[(.*?)]")
 
     def __init__(
