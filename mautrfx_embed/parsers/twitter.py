@@ -130,29 +130,29 @@ class Twitter:
                     photos.append(photo)
         return videos, photos
 
-    async def _parse_poll(self, data: Any) -> Poll:
+    async def _parse_poll(self, data: Any) -> Poll | None:
         """
         Extract poll data from JSON
         :param data: post's JSON data
         :return: Poll object
         """
-        poll = None
         poll_raw = data.get("poll")
-        if poll_raw is not None:
-            choices: list[Choice] = []
-            for option in poll_raw["choices"]:
-                choice = Choice(
-                    label=option["label"],
-                    votes_count=option["count"],
-                    percentage=option["percentage"],
-                )
-                choices.append(choice)
-            poll = Poll(
-                ends_at=poll_raw["ends_at"],
-                status=poll_raw["time_left_en"],
-                total_voters=poll_raw["total_votes"],
-                choices=choices
+        if not poll_raw:
+            return None
+        choices: list[Choice] = []
+        for option in poll_raw["choices"]:
+            choice = Choice(
+                label=option["label"],
+                votes_count=option["count"],
+                percentage=option["percentage"],
             )
+            choices.append(choice)
+        poll = Poll(
+            ends_at=poll_raw["ends_at"],
+            status=poll_raw["time_left_en"],
+            total_voters=poll_raw["total_votes"],
+            choices=choices
+        )
         return poll
 
     async def _parse_facets(self, data: Any) -> list[Facet]:

@@ -235,37 +235,37 @@ class Mastodon:
             )
         return None
 
-    async def _parse_poll(self, data: Any) -> Poll:
+    async def _parse_poll(self, data: Any) -> Poll | None:
         """
         Extract poll data from JSON
         :param data: post's JSON from Mastodon API
         :return: Poll object
         """
-        poll = None
         poll_raw = data.get("poll")
-        if poll_raw:
-            choices: list[Choice] = []
-            for option in poll_raw["options"]:
-                choice = Choice(
-                    label=option["title"],
-                    votes_count=option["votes_count"],
-                    percentage=(
-                        round(option["votes_count"] / poll_raw["voters_count"] * 100, 1)
-                        if poll_raw["voters_count"] else 0
-                    ),
-                )
-                choices.append(choice)
-            if not poll_raw["expired"]:
-                expires_at = await self.utils.parse_date(poll_raw["expires_at"])
-                status = await self.utils.get_poll_status(expires_at)
-            else:
-                status = "Final results"
-            poll = Poll(
-                ends_at=poll_raw["expires_at"],
-                status=status,
-                total_voters=poll_raw["voters_count"],
-                choices=choices
+        if not poll_raw:
+            return None
+        choices: list[Choice] = []
+        for option in poll_raw["options"]:
+            choice = Choice(
+                label=option["title"],
+                votes_count=option["votes_count"],
+                percentage=(
+                    round(option["votes_count"] / poll_raw["voters_count"] * 100, 1)
+                    if poll_raw["voters_count"] else 0
+                ),
             )
+            choices.append(choice)
+        expires_at = await self.utils.parse_date(poll_raw["expires_at"])
+        if not poll_raw["expired"]:
+            status = await self.utils.get_poll_status(expires_at)
+        else:
+            status = "Final results"
+        poll = Poll(
+            ends_at=expires_at,
+            status=status,
+            total_voters=poll_raw["voters_count"],
+            choices=choices
+        )
         return poll
 
     async def _replace_emoji_codes(self, emojis: list[Any], text: str) -> str:

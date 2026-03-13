@@ -1,8 +1,9 @@
 import html
 import mimetypes
+import time
 from typing import Any
 
-from ..resources.datastructures import ForumPost, Media
+from ..resources.datastructures import ForumPost, Media, Poll, Choice
 from ..resources.utils import Utilities
 
 
@@ -77,7 +78,7 @@ class Reddit:
             comments=data["num_comments"],
             photos=await self._parse_photos(data),
             videos=await self._parse_videos(data),
-            poll=None,
+            poll=await self._parse_poll(data),
             qtype="reddit",
             name="👽 Reddit",
             is_link=data.get("post_hint") in ("link", "rich:video"),
@@ -110,6 +111,43 @@ class Reddit:
         if not text:
             return ""
         return text.replace("&gt;!", "||").replace("!&lt;", "||")
+
+    async def _parse_poll(self, data: Any) -> Poll | None:
+        """
+        Extract poll data from JSON
+        :param data: post's JSON from Reddit API
+        :return: Poll object
+        """
+        poll_raw = data.get("poll_data")
+        if not poll_raw:
+            return None
+        choices: list[Choice] = []
+        expires_at = poll_raw["voting_end_timestamp"] // 1000
+        now = int(time.time())
+        is_open = expires_at > now
+        for option in poll_raw["options"]:
+            vote_count = option.get("vote_count", 0)
+            choice = Choice(
+                label=option["text"],
+                votes_count=vote_count,
+                percentage=(
+                    round(vote_count / poll_raw["total_vote_count"] * 100, 1)
+                    if poll_raw["total_vote_count"] else 0
+                ),
+            )
+            choices.append(choice)
+
+        if is_open:
+            status = await self.utils.get_poll_status(expires_at)
+        else:
+            status = "Final results"
+        poll = Poll(
+            ends_at=expires_at,
+            status=status,
+            total_voters=poll_raw["total_vote_count"],
+            choices=choices
+        )
+        return poll
 
     async def _parse_photos(self, data: Any) -> list[Media]:
         """
