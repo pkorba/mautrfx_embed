@@ -1,6 +1,7 @@
 import re
 from typing import Any, Type
 
+from mautrix.errors import MTooLarge
 from mautrix.types import TextMessageEventContent, MessageType, Format
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 from maubot import Plugin, MessageEvent
@@ -125,7 +126,10 @@ class MautrFxEmbedBot(Plugin):
                     previews.append(preview)
         for preview in previews:
             content = await self._prepare_message(preview)
-            await evt.respond(content)
+            try:
+                await evt.respond(content)
+            except MTooLarge:
+                self.log.error("Message content too large.")
 
     async def _get_api_urls(self, urls: list[tuple[str, str]]) -> list[tuple[str, str]]:
         """
