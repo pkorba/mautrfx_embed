@@ -249,7 +249,10 @@ class Mastodon:
                 choice = Choice(
                     label=option["title"],
                     votes_count=option["votes_count"],
-                    percentage=round(option["votes_count"] / poll_raw["voters_count"] * 100, 1),
+                    percentage=(
+                        round(option["votes_count"] / poll_raw["voters_count"] * 100, 1)
+                        if poll_raw["voters_count"] else 0
+                    ),
                 )
                 choices.append(choice)
             if not poll_raw["expired"]:

@@ -135,14 +135,16 @@ class Piefed:
                 choice = Choice(
                     label=option["choice_text"],
                     votes_count=option["num_votes"],
-                    percentage=round(option["num_votes"] / voters_count * 100, 1),
+                    percentage=(
+                        round(option["num_votes"] / voters_count * 100, 1) if voters_count else 0
+                    ),
                 )
                 choices.append(choice)
 
             expires_at = await self.utils.parse_date(poll_raw["end_poll"])
             now = int(time.time())
             if expires_at > now:
-                expires_at = await self.utils.parse_date(poll_raw["expires_at"])
+                expires_at = await self.utils.parse_date(poll_raw["end_poll"])
                 status = await self.utils.get_poll_status(expires_at)
             else:
                 status = "Final results"
