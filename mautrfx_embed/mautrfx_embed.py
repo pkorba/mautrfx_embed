@@ -62,7 +62,7 @@ class MautrFxEmbedBot(Plugin):
     )
     PIEFED_URL = re.compile(
         r"(?P<base_url>https://[^/]+)/"
-        r"(?:c/[A-Za-z0-9_.]+/p/(?P<post_id>\d+)|post/\d+[/#]comment[/_](?P<comment_id>\d+))"
+        r"(?:c/[A-Za-z0-9_.@]+/p/(?P<post_id>\d+)|post/\d+[/#]comment[/_](?P<comment_id>\d+))"
     )
 
     utils = None
