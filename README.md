@@ -1,6 +1,13 @@
 # MautrFxEmbed  
 A maubot plugin that passively scans your chats for links to X/Twitter, BlueSky, Mastodon posts, Reddit, Lemmy, Piefed posts or comments, Instagram reels, TikTok videos, and responds with a message that embeds the content of those links. This project was inspired by FxEmbed.
 
+The plugin requires the following Python packages that are not part of the default maubot installation:
+* pillow
+* filetype
+* html2text
+* lxml
+* markdown
+
 ### Key features  
 - message contains the full content of the post and the quoted post (if there is any)
 - plugin generates thumbnails for all the media that is embedded inside the post
