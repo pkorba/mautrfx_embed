@@ -8,6 +8,14 @@ The plugin requires the following Python packages that are not part of the defau
 * lxml
 * markdown
 
+These packages are not installed automatically with the plugin. They can be installed the same way you [install maubot](https://docs.mau.fi/maubot/usage/setup/index.html#production-setup):
+
+```
+cd maubot
+source ./bin/activate
+pip install --upgrade pillow filetype html2text lxml markdown
+```
+
 ### Key features  
 - message contains the full content of the post and the quoted post (if there is any)
 - plugin generates thumbnails for all the media that is embedded inside the post
