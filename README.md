@@ -1,5 +1,5 @@
 # MautrFxEmbed  
-A maubot plugin that passively scans your chats for links to X/Twitter, BlueSky, Mastodon posts, Reddit, Lemmy posts or comments, Instagram reels, TikTok videos, and responds with a message that embeds the content of those links. This project was inspired by FxEmbed.
+A maubot plugin that passively scans your chats for links to X/Twitter, BlueSky, Mastodon posts, Reddit, Lemmy, Piefed posts or comments, Instagram reels, TikTok videos, and responds with a message that embeds the content of those links. This project was inspired by FxEmbed.
 
 ### Key features  
 - message contains the full content of the post and the quoted post (if there is any)
@@ -9,7 +9,7 @@ A maubot plugin that passively scans your chats for links to X/Twitter, BlueSky,
 - plugin supports the translation syntax from FxEmbed but only for X/Twitter posts
 - plugin respects NSFW status of original posts, but it's possible to override this in the settings
 - links to videos bring you directly to a barebones media player. No need to deal with clunky Reddit's / Instagram's video players
-- for Reddit and Lemmy the plugin supports both post links and comment permalinks
+- for Reddit, Lemmy, and Piefed the plugin supports both post links and comment permalinks
 
 ## Screenshots  
 <img width="30%" height="30%" alt="twitter_video" src="https://github.com/user-attachments/assets/bc714d3d-85ab-4f79-9ace-9c863b68b4ca" />
@@ -33,8 +33,11 @@ You can configure the plugin in maubot's control panel.
 * `thumbnail_small` - maximum thumbnail size in pixels when there's more than one image/video in a post/quote
 * `forum_max_length` - maximum length of a Reddit/Lemmy post before its content is hidden in `<details>` disclosure widget. Applies to Reddit, Lemmy, Instagram, and TikTok posts.
 * `localtime`  - if `true` uses local time, if `false` uses UTC time zone (default `true`)
+* `reddit_excluded_flairs` - list of Reddit flairs for which a post content preview is not generated
+* `fedi_excluded_flairs` - list of Lemmy/Piefed flairs for which a post content preview is not generated
+* `fedi_excluded_comment_flairs` - list of Lemmy/Piefed flairs for which a comment content preview is not generated
 
-Settings contain several whitelists with URLs for each of the supported services. The lists contain original service's addresses but can also contain URLs of alternative privacy frontends like Nitter or Redlib instances. You can freely add new or remove existing URLs from there. There are no lists for Mastodon and Lemmy because there are hundreds of instances of these, and it's impossible to list them all. That's why the plugin tries to recognize these purely based on a regular expression. This may lead to some false positives, but in that case the plugin will just fail silently.
+Settings contain several whitelists with URLs for each of the supported services. The lists contain original service's addresses but can also contain URLs of alternative privacy frontends like Nitter or Redlib instances. You can freely add new or remove existing URLs from there. There are no lists for Mastodon, Lemmy, and Piefed because there are hundreds of instances of these, and it's impossible to list them all. That's why the plugin tries to recognize these purely based on a regular expression. This may lead to some false positives, but in that case the plugin will just fail silently.
 
 ## FAQ  
 **Q:** Why BlueSky/Reddit videos open in a website with some suspicious looking URL?  
@@ -60,9 +63,11 @@ Settings contain several whitelists with URLs for each of the supported services
 - TikTok - TikTok website
 - Reddit - [Reddit API](https://old.reddit.com/dev/api#GET_api_info)
 - Lemmy - [Lemmy API](https://join-lemmy.org/api/main#tag/Post/operation/GetPost)
+- Piefed - [Piefed API](https://crust.piefed.social/api/alpha/swagger)
 
 ### Known issues  
 - If you put a URL inside a spoiler, bot still generates an unobscured message. This is unlikely to get fixed because obscuring the bot's whole message works correctly only in Element Web/Desktop.
+- Currently, posts of *event* type are not supported (Reddit, Piefed)
 
 ## Disclaimer  
-This plugin is not affiliated with X/Twitter, Bluesky, Mastodon, Instagram, TikTok, Reddit, Lemmy, FxEmbed, and kkinstagram. It is not intended for commercial use or any purpose that violates Terms of Service of mentioned services. By using this plugin, you acknowledge that you will not use it in a way that infringes on these service's terms.
+This plugin is not affiliated with X/Twitter, Bluesky, Mastodon, Instagram, TikTok, Reddit, Lemmy, Piefed, FxEmbed, and kkinstagram. It is not intended for commercial use or any purpose that violates Terms of Service of mentioned services. By using this plugin, you acknowledge that you will not use it in a way that infringes on these service's terms.
