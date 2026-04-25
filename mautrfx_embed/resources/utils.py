@@ -31,7 +31,7 @@ class Utilities:
         self.files = files
         self.config = self.bot.config
         self.headers = {
-            "User-Agent": "MautrFxEmbedBot/2.0.0"
+            "User-Agent": "MautrFxEmbedBot/2.1.0"
         }
         self.headers_fake = {
             "User-Agent": "WhatsApp/2"
