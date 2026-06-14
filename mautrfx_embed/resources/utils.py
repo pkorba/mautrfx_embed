@@ -36,6 +36,10 @@ class Utilities:
         self.headers_fake = {
             "User-Agent": "WhatsApp/2"
         }
+        self.headers_reddit = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) "
+                          "Gecko/20100101 Firefox/140.0"
+        }
 
     async def parse_interaction(self, value: int) -> str:
         """
@@ -93,7 +97,7 @@ class Utilities:
         try:
             response = await self.bot.http.get(
                 url,
-                headers=self.headers,
+                headers=await self._get_headers(url),
                 timeout=timeout,
                 raise_for_status=True
             )
@@ -142,6 +146,43 @@ class Utilities:
             return ""
         except KeyError as e:
             self.bot.log.error(f"Missing 'location' header: {e}")
+            return ""
+
+    async def _get_headers(self, url: str) -> Any:
+        """
+        Get headers for use in API request.
+        :param url: source URL
+        :return: headers used in request
+        """
+        if url.startswith("https://api.reddit.com"):
+            headers = self.headers_reddit.copy()
+            headers["cookie"] = await self._get_reddit_cookie()
+            return headers
+        return self.headers
+
+    async def _get_reddit_cookie(self) -> str:
+        """
+        Get cookie for reddit JSON API request.
+        :return: reddit session cookie
+        """
+        timeout = ClientTimeout(total=20)
+        try:
+            response = await self.bot.http.get(
+                "https://old.reddit.com",
+                headers=self.headers_reddit,
+                timeout=timeout,
+                raise_for_status=True
+            )
+            cookies = (
+                f"loid={response.cookies['loid']}; "
+                f"session_tracker={response.cookies['session_tracker']}"
+            )
+            return cookies
+        except ClientError as e:
+            self.bot.log.error(f"Connection failed: {e}")
+            return ""
+        except KeyError as e:
+            self.bot.log.error(f"Failed to obtain necessary keys: {e}")
             return ""
 
     def _get_thumbnail(self, image: tuple[bytes, int, int, bool, bool]) -> tuple[bytes, int, int]:
