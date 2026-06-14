@@ -57,7 +57,7 @@ class Reddit:
         return ForumPost(
             text=await self._parse_text(data.get("selftext_html", "")),
             text_md=await self._parse_markdown(data["selftext"]),
-            flairs=[data["link_flair_text"]],
+            flairs=[data["link_flair_text"]] if data["link_flair_text"] else [],
             sub=data["subreddit_name_prefixed"],
             sub_url=f"https://www.reddit.com/{data["subreddit_name_prefixed"]}",
             title=data["title"],
