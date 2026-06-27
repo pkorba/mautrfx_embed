@@ -107,7 +107,7 @@ class MautrFxEmbedBot(Plugin):
 
     @command.passive(r"(https://\S+)", multiple=True)
     async def embed(self, evt: MessageEvent, matches: list[tuple[str, str]]) -> None:
-        if evt.sender == self.client.mxid:
+        if evt.sender == self.client.mxid or evt.content.get_edit():
             return
         api_urls = await self._get_api_urls(matches)
         if not api_urls:
