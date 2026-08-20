@@ -6,9 +6,9 @@ modules:
   - mautrfx_embed
 dependencies:
   - filetype >= 1.2.0
-  - pillow >= 11.3.0
+  - pillow >= 12.3.0
   - html2text >= 2025.4.15
-  - lxml >= 5.4.0
+  - lxml >= 6.1.0
   - markdown >= 3.10.1
 main_class: MautrFxEmbedBot
 config: true
