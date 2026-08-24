@@ -37,8 +37,8 @@ class Utilities:
             "User-Agent": "WhatsApp/2"
         }
         self.headers_reddit = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) "
-                          "Gecko/20100101 Firefox/140.0"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) "
+                          "Gecko/20100101 Firefox/153.0"
         }
 
     async def parse_interaction(self, value: int) -> str:
