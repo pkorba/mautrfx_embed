@@ -66,6 +66,8 @@ class Utilities:
         :return: seconds since Epoch
         """
         if created:
+            if "." not in created:
+                return int(timegm(strptime(created, "%Y-%m-%dT%H:%M:%S%z")))
             return int(timegm(strptime(created, "%Y-%m-%dT%H:%M:%S.%f%z")))
         return 0
 
