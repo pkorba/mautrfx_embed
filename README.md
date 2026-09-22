@@ -81,7 +81,7 @@ Settings contain several whitelists with URLs for each of the supported services
 - Piefed - [Piefed API](https://crust.piefed.social/api/alpha/swagger)
 
 ### Known issues  
-- If you put a URL inside a spoiler, bot still generates an unobscured message. This is unlikely to get fixed because obscuring the bot's whole message works correctly only in Element Web/Desktop.
+- If you put a URL inside a spoiler, bot does not generate preview at all. It's unlikely that obscuring a whole preview will be implemented, because that works correctly only in Element Web/Desktop.
 - Currently, posts of *event* type are not supported (Reddit, Piefed)
 
 ## Disclaimer  
