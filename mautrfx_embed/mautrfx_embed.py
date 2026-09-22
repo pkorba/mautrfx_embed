@@ -43,6 +43,10 @@ class Config(BaseProxyConfig):
 
 
 class MautrFxEmbedBot(Plugin):
+    SPOILER_URLS = re.compile(
+        r"<span\s[^>]*\bdata-mx-spoiler\b[^>]*>.*?</span\s*>|(https://[^\s<]+)",
+        re.IGNORECASE | re.DOTALL
+    )
     TWITTER_URL = re.compile(r"https://[^/]+/[A-Za-z0-9_]+/status/\d+")
     BLUESKY_URL = re.compile(
         r"https://[^/]+(?:/profile)?/@?(?P<username>[A-Za-z0-9:.-]+)/"
@@ -109,7 +113,10 @@ class MautrFxEmbedBot(Plugin):
     async def embed(self, evt: MessageEvent, matches: list[tuple[str, str]]) -> None:
         if evt.sender == self.client.mxid or evt.content.get_edit():
             return
-        api_urls = await self._get_api_urls(matches)
+        if evt.content.format == Format.HTML and evt.content.formatted_body:
+            api_urls = [url for url in self.SPOILER_URLS.findall(evt.content.formatted_body) if url]
+        else:
+            api_urls = await self._get_api_urls(matches)
         if not api_urls:
             return
         await evt.mark_read()
