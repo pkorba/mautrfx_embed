@@ -114,9 +114,10 @@ class MautrFxEmbedBot(Plugin):
         if evt.sender == self.client.mxid or evt.content.get_edit():
             return
         if evt.content.format == Format.HTML and evt.content.formatted_body:
-            api_urls = [url for url in self.SPOILER_URLS.findall(evt.content.formatted_body) if url]
-        else:
-            api_urls = await self._get_api_urls(matches)
+            matches = [
+                ("", url) for url in self.SPOILER_URLS.findall(evt.content.formatted_body) if url
+            ]
+        api_urls = await self._get_api_urls(matches)
         if not api_urls:
             return
         await evt.mark_read()
