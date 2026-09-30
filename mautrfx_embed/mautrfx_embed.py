@@ -44,7 +44,8 @@ class Config(BaseProxyConfig):
 
 class MautrFxEmbedBot(Plugin):
     SPOILER_URLS = re.compile(
-        r"<span\s[^>]*\bdata-mx-spoiler\b[^>]*>.*?</span\s*>|(https://[^\s<]+)",
+        r"<span\s[^>]*\bdata-mx-spoiler\b[^>]*>.*?</span\s*>"
+        r"|<a\s+href=[\\\"']+(https://[^\\\"'\s<]+)[\\\"']+\s*>",
         re.IGNORECASE | re.DOTALL
     )
     TWITTER_URL = re.compile(r"https://[^/]+/[A-Za-z0-9_]+/status/\d+")
