@@ -162,7 +162,8 @@ class MautrFxEmbedBot(Plugin):
             for handler in handlers:
                 result = await handler(url)
                 if result:
-                    api_urls.append(result)
+                    if result not in api_urls:
+                        api_urls.append(result)
                     break
         return api_urls
 
